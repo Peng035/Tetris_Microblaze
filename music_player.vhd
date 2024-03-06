@@ -41,19 +41,19 @@ component  tone_generator is
            AUD_SD : out STD_LOGIC);
 end component;
 
-COMPONENT ila_0
+--COMPONENT ila_0
 
-PORT (
-	clk : IN STD_LOGIC;
+--PORT (
+--	clk : IN STD_LOGIC;
 
 
 
-	probe0 : IN STD_LOGIC_VECTOR(0 DOWNTO 0); 
-	probe1 : IN STD_LOGIC_VECTOR(4 DOWNTO 0); 
-	probe2 : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
-	probe3 : IN STD_LOGIC_VECTOR(3 DOWNTO 0)
-);
-END COMPONENT  ;
+--	probe0 : IN STD_LOGIC_VECTOR(0 DOWNTO 0); 
+--	probe1 : IN STD_LOGIC_VECTOR(4 DOWNTO 0); 
+--	probe2 : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
+--	probe3 : IN STD_LOGIC_VECTOR(3 DOWNTO 0)
+--);
+--END COMPONENT  ;
 
 type state_type is (idle,
                       fetch_note, 
@@ -67,16 +67,16 @@ constant TEMPO  : integer := 120;
 -- number of clk cycles for 1/4 beat
 constant QUATER_BEAT : integer := integer(60*25e6/TEMPO);
 -- silence cycles after each note
-constant SILENT_GAP:     integer := 6e6;
+constant SILENT_GAP:     integer := 5e6;
 -- number of notes in the music segment
-constant TOTAL_NOTE_NUM : integer := 42;
+constant TOTAL_NOTE_NUM : integer := 32;
                       
 signal my_note_table : note_table(0 to TOTAL_NOTE_NUM-1);
 signal my_len_table  : note_table(0 to TOTAL_NOTE_NUM-1);
 
 signal tone_index    : integer range 0 to 31 := 15;
 signal volume       : integer range 0 to 10  :=10;
-signal m_Key        : integer range 0 to 10 := 8;
+signal m_Key        : integer range 0 to 10 := 2;
 
 signal current_state : state_type;
 signal next_state : state_type;
@@ -111,66 +111,58 @@ begin
                 tone_index => tone_index
         );
         
- prob_inst : ila_0
-PORT MAP (
-	clk => clk,
+-- prob_inst : ila_0
+--PORT MAP (
+--	clk => clk,
 
-	probe0 => enable_prob, 
-	probe1 => tone_prob,
-	probe2 => cur_state_prob,
-	probe3 => note_len_prob
-);       
+--	probe0 => enable_prob, 
+--	probe1 => tone_prob,
+--	probe2 => cur_state_prob,
+--	probe3 => note_len_prob
+--);       
         
-  my_note_table(0) <=   0; 
-  my_note_table(1) <=   19;
-  my_note_table(2) <=   19;
-  my_note_table(3) <=   18;
-  my_note_table(4) <=   17;
-  my_note_table(5) <=   15;
-  
+  my_note_table(0) <=   11; 
+  my_note_table(1) <=   13;
+  my_note_table(2) <=   15;
+  my_note_table(3) <=   11;
+  my_note_table(4) <=   11;
+  my_note_table(5) <=   13;
   my_note_table(6) <=   15;
-  my_note_table(7) <=   15;
-  my_note_table(8) <=   17;
-  my_note_table(9) <=   18;
-  my_note_table(10) <=  17;
-        
-  my_note_table(11) <=  0; 
-  my_note_table(12) <=  19;
-  my_note_table(13) <=  19;
+  my_note_table(7) <=   11;
+  my_note_table(8) <=   15;
+  my_note_table(9) <=   16;
+  my_note_table(10) <=  18;
+  my_note_table(11) <=  15; 
+  my_note_table(12) <=  16;
+  my_note_table(13) <=  18;
   my_note_table(14) <=  18;
-  my_note_table(15) <=  17;      
-  my_note_table(16) <=  15;
-  
-  my_note_table(17) <=  15;
+  my_note_table(15) <=  20;      
+  my_note_table(16) <=  18;
+  my_note_table(17) <=  16;
   my_note_table(18) <=  15;  
-  my_note_table(19) <=  17;
+  my_note_table(19) <=  11;
   my_note_table(20) <=  18;  
-  my_note_table(21) <=  17;
-  
-  my_note_table(22) <=  0;
-  my_note_table(23) <=  7;
-  my_note_table(24) <=  10;
-  my_note_table(25) <=  10; 
+  my_note_table(21) <=  20;  
+  my_note_table(22) <=  18;
+  my_note_table(23) <=  16;
+  my_note_table(24) <=  15;
+  my_note_table(25) <=  11; 
   my_note_table(26) <=  11;
-  my_note_table(27) <=  13;
-  
-  my_note_table(28) <=  13;
-  my_note_table(29) <=  12;
-  my_note_table(30) <=  11; 
+  my_note_table(27) <=  6;
+  my_note_table(28) <=  11;  
+  my_note_table(29) <=  11;
+  my_note_table(30) <=  6; 
   my_note_table(31) <=  11;
-  my_note_table(32) <=  10;
-  
-  my_note_table(33) <=  10;
-  my_note_table(34) <=  7;
-  my_note_table(35) <=  10; 
-  my_note_table(36) <=  11;
-  my_note_table(37) <=  11;
-  
-  my_note_table(38) <=  11;
-  my_note_table(39) <=  0;
-  my_note_table(40) <=  0;    
-  my_note_table(41) <=  0;
-  
+--  my_note_table(32) <=  10;  
+--  my_note_table(33) <=  10;
+--  my_note_table(34) <=  7;
+--  my_note_table(35) <=  10; 
+--  my_note_table(36) <=  11;
+--  my_note_table(37) <=  11;  
+--  my_note_table(38) <=  11;
+--  my_note_table(39) <=  0;
+--  my_note_table(40) <=  0;    
+--  my_note_table(41) <=  0;  
 --  my_note_table(42) <=  12;
 --  my_note_table(43) <=  15;
 --  my_note_table(44) <=  14;
@@ -178,56 +170,48 @@ PORT MAP (
 --  my_note_table(46) <=  11;
 --  my_note_table(47) <=  10;
   
-  my_len_table(0) <=    4  ;
-  my_len_table(1) <=    4  ;
+  my_len_table(0) <=    2  ;
+  my_len_table(1) <=    2  ;
   my_len_table(2) <=    2  ;
   my_len_table(3) <=    2  ;
   my_len_table(4) <=    2  ;
   my_len_table(5) <=    2  ;
-  
   my_len_table(6) <=    2  ;
-  my_len_table(7) <=    4  ;
+  my_len_table(7) <=    2  ;
   my_len_table(8) <=    2  ;
-  my_len_table(9) <=    4  ;
-  my_len_table(10) <=   4  ;
-  
-  my_len_table(11) <=   4  ;
-  my_len_table(12) <=   4  ;
-  my_len_table(13) <=   2  ;
-  my_len_table(14) <=   2  ;
-  my_len_table(15) <=   2  ;
-  my_len_table(16) <=   2  ;
-  
-  my_len_table(17) <=   2  ;
-  my_len_table(18) <=   4  ;
+  my_len_table(9) <=    2  ;
+  my_len_table(10) <=   4  ;  
+  my_len_table(11) <=   2  ;
+  my_len_table(12) <=   2  ;
+  my_len_table(13) <=   4  ;
+  my_len_table(14) <=   1  ;
+  my_len_table(15) <=   1  ;
+  my_len_table(16) <=   1  ;  
+  my_len_table(17) <=   1  ;
+  my_len_table(18) <=   2  ;
   my_len_table(19) <=   2  ;
-  my_len_table(20) <=   4  ;
-  my_len_table(21) <=   4  ;
-  
-  my_len_table(22) <=   4  ;
-  my_len_table(23) <=   2  ;
+  my_len_table(20) <=   1  ;
+  my_len_table(21) <=   1  ;  
+  my_len_table(22) <=   1  ;
+  my_len_table(23) <=   1  ;
   my_len_table(24) <=   2  ;
   my_len_table(25) <=   2  ;
-  my_len_table(26) <=   4  ;
-  my_len_table(27) <=   2  ;
-  
+  my_len_table(26) <=   2  ;
+  my_len_table(27) <=   2  ;  
   my_len_table(28) <=   4  ;
   my_len_table(29) <=   2  ;
   my_len_table(30) <=   2  ;
-  my_len_table(31) <=   2  ;
-  my_len_table(32) <=   6  ;
-  
-  my_len_table(33) <=   2  ;
-  my_len_table(34) <=   4  ;
-  my_len_table(35) <=   4  ;
-  my_len_table(36) <=   4  ;
-  my_len_table(37) <=   2  ;
-  
-  my_len_table(38) <=   2  ;
-  my_len_table(39) <=   4  ;
-  my_len_table(40) <=   4  ;
-  my_len_table(41) <=   4  ;
-  
+  my_len_table(31) <=   4  ;
+--  my_len_table(32) <=   6  ;  
+--  my_len_table(33) <=   2  ;
+--  my_len_table(34) <=   4  ;
+--  my_len_table(35) <=   4  ;
+--  my_len_table(36) <=   4  ;
+--  my_len_table(37) <=   2  ;  
+--  my_len_table(38) <=   2  ;
+--  my_len_table(39) <=   4  ;
+--  my_len_table(40) <=   4  ;
+--  my_len_table(41) <=   4  ;  
 --  my_len_table(42) <=   1  ;
 --  my_len_table(43) <=   2  ;
 --  my_len_table(44) <=   2  ;
@@ -235,10 +219,10 @@ PORT MAP (
 --  my_len_table(46) <=   1  ;
 --  my_len_table(47) <=   1  ;
   
-  -- debug probe
-  tone_prob <= std_logic_vector(TO_UNSIGNED(tone_index_buff, tone_prob'length));
-  enable_prob(0) <= enable;
-  note_len_prob <= std_logic_vector(TO_UNSIGNED(tone_len_buff, note_len_prob'length));
+--  -- debug probe
+--  tone_prob <= std_logic_vector(TO_UNSIGNED(tone_index_buff, tone_prob'length));
+--  enable_prob(0) <= enable;
+--  note_len_prob <= std_logic_vector(TO_UNSIGNED(tone_len_buff, note_len_prob'length));
   
   -- pass the tone index to tone generator
   tone_index <= tone_index_buff;        
