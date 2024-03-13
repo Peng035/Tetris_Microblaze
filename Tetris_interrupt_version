@@ -70,13 +70,14 @@
 #define BR     B_COLS+1		/* bottom right */
 
 /* These can be overridden by the user. */
-#define DEFAULT_KEYS "jkl pq"
+#define DEFAULT_KEYS "abcdefg"
 #define KEY_LEFT   0
 #define KEY_RIGHT  2
 #define KEY_ROTATE 1
 #define KEY_DROP   3
 #define KEY_PAUSE  4
 #define KEY_QUIT   5
+#define KEY_RESET  6
 
 // We only use GPIO 1
 #define GPIO_OUT_CHANNEL 1
@@ -88,16 +89,16 @@ static XGpio Gpio_out;
 static XTmrCtr _axi_timer;
 
 // buffer for GPIO output
-static uint16_t gpio_out_buff = 0; 
+static uint16_t gpio_out_buff = 0;
 
-// Game logic related 
+// Game logic related
 static volatile int running = 1;
 // the freeze flag of the game
 // 0: unfreezed, 1: freezed
 static int freeze_flag = 0;
 
 static char *keys = DEFAULT_KEYS;
-static int level = 1;
+//static int level = 1;
 static int points = 0;
 static int lines_cleared = 0;
 static int board[B_SIZE];
@@ -108,7 +109,7 @@ static int *shape;
 static int  color;
 
 // the int representation of button press
-static int ctrl_key; 
+static int ctrl_key;
 
 // refresh flag set by the timer interrupt
 static int refresh_flag = 1;
@@ -116,7 +117,7 @@ static int refresh_flag = 1;
 // used to generate random next shape
 static unsigned long int next_rand = 1;
 
-// 5*19 2D int array , each row represent info of a shape (5 elements) 
+// 5*19 2D int array , each row represent info of a shape (5 elements)
 // [0] index of shape, [1],[2],[3] block offset
 // [4] color of the shape
 static int shapes[] = {
@@ -154,41 +155,41 @@ static int fits_in(int *s, int pos)
  static void  coordinate_output(int s_type, int s_pos, int cmd)
  {
     int new_pos, i, bit;
-      
+
     // convert the pos from center of 3X3 blocks
     // into the top left corner of a 4X4 blocks
-    // this also needs to be in consistent with GPU  
+    // this also needs to be in consistent with GPU
     // new_pos is [0, 575] since it is 24X24
     // which need 10 bits to represent
-    new_pos = s_pos-2*B_COLS-1; 
+    new_pos = s_pos-2*B_COLS-1;
 
     // 0-9 bit is the coordinate
     // 10-12 bit is the shape of sprite (associated with color)
     // 13-14 reserved for cmd such as pause and restart
     // bit 15 is the valid flag 1 means gpio out is valid to be read
     gpio_out_buff |= new_pos &  0b1111111111;
-    gpio_out_buff |= s_type << 10;    
+    gpio_out_buff |= s_type << 10;
     gpio_out_buff |= 0b1000000000000000;
 
     // cmd part need to be implemented here
     // ....................
-        
-    #ifdef DEBUG_C
-        xil_printf("\nGPIO output is = 0bx");
-        for(i = sizeof(gpio_out_buff) * 8 - 1; i >= 0; i--)
-        {
-            bit = (gpio_out_buff >> i) & 1;
-            xil_printf("%d", bit);
-        }
-        print("\n");
-    #endif
+
+    // #ifdef DEBUG_C
+    //     xil_printf("\r\nGPIO output is = 0bx");
+    //     for(i = sizeof(gpio_out_buff) * 8 - 1; i >= 0; i--)
+    //     {
+    //         bit = (gpio_out_buff >> i) & 1;
+    //         xil_printf("%d", bit);
+    //     }
+    //     print("\r\n");
+    // #endif
 
     // write the GPIO output
     XGpio_DiscreteWrite(&Gpio_out, GPIO_OUT_CHANNEL, gpio_out_buff);
 
  }
 
-// This function need to be modified 
+// This function need to be modified
 // since the work is shifted to GPU instead
 // /* place shape at pos with color */
 static void place(int *s, int pos, int c)
@@ -202,14 +203,19 @@ static void place(int *s, int pos, int c)
 	board[pos + s[2]] = c;
 	board[pos + s[3]] = c;
 
+    #ifdef DEBUG_C
+        xil_printf("POS  is = %d\r\n shape is: %d \r\n\n", pos, s[4]);
+
+    #endif
+
     // output to GPU
     coordinate_output(s[0],pos, 0);
 
-    print("Refresh Once \n");
+    print("Refresh Once\r\n");
 }
 
- 
-// my function to generate a pseudo random number 
+
+// my function to generate a pseudo random number
 // on bare-metal Microblaze
 int my_rand(void) {
     next_rand = next_rand * 1103515245 + 12345;
@@ -240,7 +246,7 @@ static int *next_shape(void)
 	return next;
 }
 
-// 
+//
 static void freeze(int enable)
 {
     // empty loop to freeze the execution
@@ -249,7 +255,7 @@ static void freeze(int enable)
     {;}
 }
 
-// use a switch to generate interrupt to clear 
+// use a switch to generate interrupt to clear
 // the running flag
 void exit_handler(void *CallbackRef)
 {
@@ -262,16 +268,19 @@ void exit_handler(void *CallbackRef)
 // upper button to freeze/Unfreeze
 void IntrButton_U_Handler(void *CallbackRef){
     // toggle the freeze flag
-    freeze_flag = !freeze_flag; 
+    freeze_flag = !freeze_flag;
     freeze(freeze_flag);
+
+    // set the refresh flag
+    refresh_flag = 1;
 
 #ifdef DEBUG_C
 	// print("Enter Button UP Interrupt Handler\n");
     if (freeze_flag) {
-        print("Freeze the Game\n");
+        print("Freeze the Game\r\n");
     }
-    else{ 
-        print("Unfreeze the Game\n");
+    else{
+        print("Unfreeze the Game\r\n");
     }
 #endif
     ctrl_key = keys[KEY_PAUSE];
@@ -279,11 +288,12 @@ void IntrButton_U_Handler(void *CallbackRef){
 	XIntc_Acknowledge(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_U_INTR);
 }
 
-// Left 
+// Left
 void IntrButton_L_Handler(void *CallbackRef){
-
+    // set the refresh flag
+    refresh_flag = 1;
 #ifdef DEBUG_C
-	print("Enter Button Left Interrupt Handler\n");
+	print("Enter Button Left Interrupt Handler\r\n");
 #endif
     ctrl_key = keys[KEY_LEFT];
 	// clear interrupt in Interrupt block
@@ -292,9 +302,10 @@ void IntrButton_L_Handler(void *CallbackRef){
 
 // Right
 void IntrButton_R_Handler(void *CallbackRef){
-
+    // set the refresh flag
+    refresh_flag = 1;
 #ifdef DEBUG_C
-	print("Enter Button Right Interrupt Handler\n");
+	print("Enter Button Right Interrupt Handler\r\n");
 #endif
     ctrl_key = keys[KEY_RIGHT];
 	// clear interrupt in Interrupt block
@@ -303,9 +314,10 @@ void IntrButton_R_Handler(void *CallbackRef){
 
 // button Down means drop
 void IntrButton_D_Handler(void *CallbackRef){
-
+    // set the refresh flag
+    refresh_flag = 1;
 #ifdef DEBUG_C
-	print("Enter Button Down Interrupt Handler\n");
+	print("Enter Button Down Interrupt Handler\r\n");
 #endif
     ctrl_key = keys[KEY_DROP];
 	// clear interrupt in Interrupt block
@@ -314,9 +326,11 @@ void IntrButton_D_Handler(void *CallbackRef){
 
 // button C means rotate
 void IntrButton_C_Handler(void *CallbackRef){
+    // set the refresh flag
+    refresh_flag = 1;
 
 #ifdef DEBUG_C
-	print("Enter Button Center Interrupt Handler\n");
+	print("Enter Button Center Interrupt Handler\r\n");
 #endif
     ctrl_key = keys[KEY_ROTATE];
 	// clear interrupt in Interrupt block
@@ -327,7 +341,7 @@ void IntrTimerHandler(void *CallbackRef){
 
 	//  need to implement own functionality
 #ifdef DEBUG_C
-	print("Enter Timer Interrupt Handler\n");
+	print("Enter Timer Interrupt Handler\r\n");
 #endif
 
 	XTmrCtr *TmrCtrPtr = NULL;
@@ -458,7 +472,7 @@ int main() {
 
     Xil_ICacheEnable();
     Xil_DCacheEnable();
-    print("---Entering main---\n");
+    print("---Entering main---\r\n");
 
     // Initialize GPIO_out controller
     status = XGpio_Initialize(&Gpio_out, XPAR_GPIO_0_DEVICE_ID);
@@ -474,9 +488,9 @@ int main() {
     status = XIntc_Initialize(&intc, XPAR_INTC_0_DEVICE_ID);
     #ifdef DEBUG_C
         if (status == XST_SUCCESS) {
-            print("Interrupt Block initialization succeed\n");
+            print("Interrupt Block initialization succeed\r\n");
         } else {
-            print("Interrupt Block initialization FAILED\n");
+            print("Interrupt Block initialization FAILED\r\n");
         }
     #endif
 
@@ -501,9 +515,9 @@ int main() {
 
 #ifdef DEBUG_C
     if (status == XST_SUCCESS) {
-        print("Connect Timer interrupt succeed\n");
+        print("Connect Timer interrupt succeed\r\n");
     } else {
-        print("Connect Timer interrupt FAILED\n");
+        print("Connect Timer interrupt FAILED\r\n");
     }
 #endif
 
@@ -525,7 +539,7 @@ int main() {
     XTmrCtr *temp = &_axi_timer;
     DataRead = XTmrCtr_ReadReg(temp->BaseAddress, 0, XTC_TCR_OFFSET);
 #ifdef DEBUG_C
-    xil_printf("\nTimer counter Read value= %d\n", DataRead);
+    xil_printf("\nTimer counter Read value= %d\r\n", DataRead);
 #endif
 
      /* Initialize board, grey border, used to be white(7) */
@@ -542,6 +556,13 @@ int main() {
     shape = next_shape();
 
 	while (running) {
+        c = ctrl_key;
+
+        if (c == keys[KEY_RESET]){
+        	for (i = 0; i < B_SIZE; i++) {
+        		board[i] = 0;
+        	    }
+        }
         // refresh the board when the time interrupt happens
         if(refresh_flag) {
             if (c < 0) {
@@ -559,12 +580,6 @@ int main() {
                                 for (; j % B_COLS; board[j--] = 0)
                                 ;
 
-                                // c = update();
-                                // original update method has two functions
-                                // 1st update the board[] array, this is moved to GPU
-                                // 2nd is to get the control input, this is replaced with interrupt
-                                c = ctrl_key; 
-
                                 // move the upper row down after clear one line
                                 for (; --j; board[j + B_COLS] = board[j])
                                 ;
@@ -573,18 +588,19 @@ int main() {
                                 // original update method has two functions
                                 // 1st update the board[] array, this is moved to GPU
                                 // 2nd is to get the control input, this is replaced with interrupt
-                                c = ctrl_key; 
+                                // ctrl_key = -1;
                             }
                         }
                     }
                     shape = next_shape();
                     if (!fits_in(shape, pos = B_COLS+B_COLS/2)){
-                        // c = keys[KEY_QUIT];
+                        // when it is full pause there
+                        ctrl_key = keys[KEY_PAUSE];
                         #ifdef DEBUG_C
-                            print("Full! Stop!\n");
+                            print("Full! Stop!\r\n");
                         #endif
                     }
-                    
+
                 }
             }
 
@@ -618,15 +634,15 @@ int main() {
             // original update method has two functions
             // 1st update the board[] array, this is moved to GPU
             // 2nd is to get the control input, this is replaced with interrupt
-            c = ctrl_key; 
+            ctrl_key = -1;
             place(shape, pos, 0);
 
             // clear the flag, wait until next interrupt
-            refresh_flag = 0; 
+            refresh_flag = 0;
         }
 	}
 
-    print("---Exiting main---\n");
+    print("---Exiting main---\r\n");
     Xil_DCacheDisable();
     Xil_ICacheDisable();
     return 0;
