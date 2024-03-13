@@ -54,16 +54,9 @@
 
 #define DEBUG_C   1     // macro switch for print info
 
-#define clrscr()       
-#define gotoxy(x,y)    
-#define hidecursor()   
-#define showcursor()   
-#define bgcolor(c,s)   
-
-
 /* the board */
-#define      B_COLS 12
-#define      B_ROWS 23
+#define      B_COLS 24
+#define      B_ROWS 24
 #define      B_SIZE (B_ROWS * B_COLS)
 
 // offset to convert the 2D position into an 1D integer array
@@ -85,11 +78,17 @@
 #define KEY_PAUSE  4
 #define KEY_QUIT   5
 
+// We only use GPIO 1
+#define GPIO_OUT_CHANNEL 1
+
 
 // instance of the controllers of peripheral devices
 static XIntc intc;
 static XGpio Gpio_out;
 static XTmrCtr _axi_timer;
+
+// buffer for GPIO output
+static uint16_t gpio_out_buff = 0; 
 
 // Game logic related 
 static volatile int running = 1;
@@ -151,6 +150,44 @@ static int fits_in(int *s, int pos)
 	return 1;
 }
 
+   // function send output via GPIO
+ static void  coordinate_output(int s_type, int s_pos, int cmd)
+ {
+    int new_pos, i, bit;
+      
+    // convert the pos from center of 3X3 blocks
+    // into the top left corner of a 4X4 blocks
+    // this also needs to be in consistent with GPU  
+    // new_pos is [0, 575] since it is 24X24
+    // which need 10 bits to represent
+    new_pos = s_pos-2*B_COLS-1; 
+
+    // 0-9 bit is the coordinate
+    // 10-12 bit is the shape of sprite (associated with color)
+    // 13-14 reserved for cmd such as pause and restart
+    // bit 15 is the valid flag 1 means gpio out is valid to be read
+    gpio_out_buff |= new_pos &  0b1111111111;
+    gpio_out_buff |= s_type << 10;    
+    gpio_out_buff |= 0b1000000000000000;
+
+    // cmd part need to be implemented here
+    // ....................
+        
+    #ifdef DEBUG_C
+        xil_printf("\nGPIO output is = 0bx");
+        for(i = sizeof(gpio_out_buff) * 8 - 1; i >= 0; i--)
+        {
+            bit = (gpio_out_buff >> i) & 1;
+            xil_printf("%d", bit);
+        }
+        print("\n");
+    #endif
+
+    // write the GPIO output
+    XGpio_DiscreteWrite(&Gpio_out, GPIO_OUT_CHANNEL, gpio_out_buff);
+
+ }
+
 // This function need to be modified 
 // since the work is shifted to GPU instead
 // /* place shape at pos with color */
@@ -165,10 +202,13 @@ static void place(int *s, int pos, int c)
 	board[pos + s[2]] = c;
 	board[pos + s[3]] = c;
 
+    // output to GPU
+    coordinate_output(s[0],pos, 0);
+
     print("Refresh Once \n");
 }
 
-
+ 
 // my function to generate a pseudo random number 
 // on bare-metal Microblaze
 int my_rand(void) {
@@ -226,12 +266,12 @@ void IntrButton_U_Handler(void *CallbackRef){
     freeze(freeze_flag);
 
 #ifdef DEBUG_C
-	print("Enter Button UP Interrupt Handler\r\n");
+	// print("Enter Button UP Interrupt Handler\n");
     if (freeze_flag) {
-        print("Freeze the Game\r\n");
+        print("Freeze the Game\n");
     }
     else{ 
-        print("Unfreeze the Game\r\n");
+        print("Unfreeze the Game\n");
     }
 #endif
     ctrl_key = keys[KEY_PAUSE];
@@ -243,7 +283,7 @@ void IntrButton_U_Handler(void *CallbackRef){
 void IntrButton_L_Handler(void *CallbackRef){
 
 #ifdef DEBUG_C
-	print("Enter Button Left Interrupt Handler\r\n");
+	print("Enter Button Left Interrupt Handler\n");
 #endif
     ctrl_key = keys[KEY_LEFT];
 	// clear interrupt in Interrupt block
@@ -254,7 +294,7 @@ void IntrButton_L_Handler(void *CallbackRef){
 void IntrButton_R_Handler(void *CallbackRef){
 
 #ifdef DEBUG_C
-	print("Enter Button Right Interrupt Handler\r\n");
+	print("Enter Button Right Interrupt Handler\n");
 #endif
     ctrl_key = keys[KEY_RIGHT];
 	// clear interrupt in Interrupt block
@@ -265,7 +305,7 @@ void IntrButton_R_Handler(void *CallbackRef){
 void IntrButton_D_Handler(void *CallbackRef){
 
 #ifdef DEBUG_C
-	print("Enter Button Down Interrupt Handler\r\n");
+	print("Enter Button Down Interrupt Handler\n");
 #endif
     ctrl_key = keys[KEY_DROP];
 	// clear interrupt in Interrupt block
@@ -276,7 +316,7 @@ void IntrButton_D_Handler(void *CallbackRef){
 void IntrButton_C_Handler(void *CallbackRef){
 
 #ifdef DEBUG_C
-	print("Enter Button Center Interrupt Handler\r\n");
+	print("Enter Button Center Interrupt Handler\n");
 #endif
     ctrl_key = keys[KEY_ROTATE];
 	// clear interrupt in Interrupt block
@@ -287,12 +327,15 @@ void IntrTimerHandler(void *CallbackRef){
 
 	//  need to implement own functionality
 #ifdef DEBUG_C
-	print("Enter Timer Interrupt Handler\r\n");
+	print("Enter Timer Interrupt Handler\n");
 #endif
 
 	XTmrCtr *TmrCtrPtr = NULL;
 	u8 TmrCtrNumber;
 	u32 ControlStatusReg;
+
+    // clear the valid flag of GPIO
+    XGpio_DiscreteWrite(&Gpio_out, GPIO_OUT_CHANNEL, gpio_out_buff & 0b0111111111111111);
 
     // set the refresh flag
     refresh_flag = 1;
@@ -415,7 +458,7 @@ int main() {
 
     Xil_ICacheEnable();
     Xil_DCacheEnable();
-    print("---Entering main---\n\r");
+    print("---Entering main---\n");
 
     // Initialize GPIO_out controller
     status = XGpio_Initialize(&Gpio_out, XPAR_GPIO_0_DEVICE_ID);
@@ -429,11 +472,13 @@ int main() {
 
     // Initialize interrupt controller
     status = XIntc_Initialize(&intc, XPAR_INTC_0_DEVICE_ID);
-    if (status == XST_SUCCESS) {
-        print("Interrupt Block initialization succeed\r\n");
-    } else {
-        print("Interrupt Block initialization FAILED\r\n");
-    }
+    #ifdef DEBUG_C
+        if (status == XST_SUCCESS) {
+            print("Interrupt Block initialization succeed\n");
+        } else {
+            print("Interrupt Block initialization FAILED\n");
+        }
+    #endif
 
     // Connect interrupt handlers for buttons
     status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_U_INTR, (XInterruptHandler)IntrButton_U_Handler, &Gpio_out);
@@ -456,9 +501,9 @@ int main() {
 
 #ifdef DEBUG_C
     if (status == XST_SUCCESS) {
-        print("Connect Timer interrupt succeed\r\n");
+        print("Connect Timer interrupt succeed\n");
     } else {
-        print("Connect Timer interrupt FAILED\r\n");
+        print("Connect Timer interrupt FAILED\n");
     }
 #endif
 
@@ -581,7 +626,7 @@ int main() {
         }
 	}
 
-    print("---Exiting main---\n\r");
+    print("---Exiting main---\n");
     Xil_DCacheDisable();
     Xil_ICacheDisable();
     return 0;
