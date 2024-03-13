@@ -337,6 +337,19 @@ void IntrButton_C_Handler(void *CallbackRef){
 	XIntc_Acknowledge(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_C_INTR);
 }
 
+// Restart Switch handler, Intr_Restart_Handler
+void Intr_Restart_Handler(void *CallbackRef){
+    // set the refresh flag
+    refresh_flag = 1;
+
+#ifdef DEBUG_C
+	print("Enter Restart Interrupt Handler\r\n");
+#endif
+    ctrl_key = keys[KEY_RESET];
+	// clear interrupt in Interrupt block
+	XIntc_Acknowledge(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_RESTART_S_INTR);
+}
+
 void IntrTimerHandler(void *CallbackRef){
 
 	//  need to implement own functionality
@@ -500,6 +513,7 @@ int main() {
     status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_R_INTR, (XInterruptHandler)IntrButton_R_Handler, &Gpio_out);
     status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_D_INTR, (XInterruptHandler)IntrButton_D_Handler, &Gpio_out);
     status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_C_INTR, (XInterruptHandler)IntrButton_C_Handler, &Gpio_out);
+    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_RESTART_S_INTR, (XInterruptHandler)Intr_Restart_Handler, &Gpio_out);
 
 
     // Enable interrupts for buttons
@@ -508,6 +522,8 @@ int main() {
     XIntc_Enable(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_R_INTR);
     XIntc_Enable(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_D_INTR);
     XIntc_Enable(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_C_INTR);
+    XIntc_Enable(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_RESTART_S_INTR);
+
 
 
     // Connect interrupt handler for timer
@@ -558,10 +574,16 @@ int main() {
 	while (running) {
         c = ctrl_key;
 
-        if (c == keys[KEY_RESET]){
-        	for (i = 0; i < B_SIZE; i++) {
-        		board[i] = 0;
-        	    }
+        if (c == keys[KEY_RESET])
+        {
+			// Initialize board, grey border
+			ptr = board;
+			for (i = B_SIZE; i; i--)
+			{
+				// i < 2*B_COLS+1 the bottom line of the table
+				// i % B_COLS < 2 the left and right boarder of the table
+				*ptr++ = i < 2*B_COLS+1 || i % B_COLS < 2 ? 60 : 0;
+			}
         }
         // refresh the board when the time interrupt happens
         if(refresh_flag) {
