@@ -72,12 +72,18 @@
 /* These can be overridden by the user. */
 #define DEFAULT_KEYS "abcdefg"
 #define KEY_LEFT   0
-#define KEY_RIGHT  2
-#define KEY_ROTATE 1
+#define KEY_RIGHT  1
+#define KEY_ROTATE 2
 #define KEY_DROP   3
 #define KEY_PAUSE  4
 #define KEY_QUIT   5
 #define KEY_RESET  6
+#define KEY_REMAIN -1
+
+#define CMD_DRAW            0
+#define CMD_CLR_ONE         1
+#define CMD_CLR_LINE        2
+#define CMD_CLR_BOARD       3
 
 // We only use GPIO 1
 #define GPIO_OUT_CHANNEL 1
@@ -151,8 +157,13 @@ static int fits_in(int *s, int pos)
 	return 1;
 }
 
-   // function send output via GPIO
- static void  coordinate_output(int s_type, int s_pos, int cmd)
+
+   // function send new sprite via GPIO
+   // cmd: 0 draw new sprite at pos
+   // cmd: 1 clear sprite at pos
+   // cmd: 2 clear line start with pos, move the upper line down
+   // cmd: 3 clear the entire board
+ static void  update_board(int s_type, int s_pos, int cmd)
  {
     int new_pos, i, bit;
 
@@ -168,30 +179,55 @@ static int fits_in(int *s, int pos)
     // 13-14 reserved for cmd such as pause and restart
     // bit 15 is the valid flag 1 means gpio out is valid to be read
     gpio_out_buff |= new_pos &  0b1111111111;
-    gpio_out_buff |= s_type << 10;
-    gpio_out_buff |= 0b1000000000000000;
 
-    // cmd part need to be implemented here
-    // ....................
-
-    // #ifdef DEBUG_C
-    //     xil_printf("\r\nGPIO output is = 0bx");
-    //     for(i = sizeof(gpio_out_buff) * 8 - 1; i >= 0; i--)
-    //     {
-    //         bit = (gpio_out_buff >> i) & 1;
-    //         xil_printf("%d", bit);
-    //     }
-    //     print("\r\n");
-    // #endif
+    switch(cmd){
+        case 0:
+            gpio_out_buff |= s_type << 10;
+            gpio_out_buff |= 0b1000000000000000;
+            #ifdef DEBUG_C
+                print("Draw new sprite\r\n");
+            #endif
+            break;
+        case 1:
+            gpio_out_buff |= 0b1010000000000000;
+            #ifdef DEBUG_C
+                print("Clear old sprite\r\n");
+            #endif
+            break;
+        case 2:
+            gpio_out_buff |= 0b1100000000000000;
+            #ifdef DEBUG_C
+                print("Clear a Line\r\n");
+            #endif
+            break;
+        case 3:
+            gpio_out_buff |= 0b1110000000000000;
+            #ifdef DEBUG_C
+                print("Clear the entire board\r\n");
+            #endif
+            break;
+        default: ;
+    }
+    
+    #ifdef DEBUG_C
+        xil_printf("\r\nGPIO output is = 0bx");
+        for(i = sizeof(gpio_out_buff) * 8 - 1; i >= 0; i--)
+        {
+            bit = (gpio_out_buff >> i) & 1;
+            xil_printf("%d", bit);
+        }
+        print("\r\n");
+    #endif
 
     // write the GPIO output
     XGpio_DiscreteWrite(&Gpio_out, GPIO_OUT_CHANNEL, gpio_out_buff);
 
+    // clear the buff
+    gpio_out_buff = 0;
+
  }
 
-// This function need to be modified
-// since the work is shifted to GPU instead
-// /* place shape at pos with color */
+//  place shape at pos with color in softeware
 static void place(int *s, int pos, int c)
 {
     // each sprite has 4 blocks
@@ -204,12 +240,9 @@ static void place(int *s, int pos, int c)
 	board[pos + s[3]] = c;
 
     #ifdef DEBUG_C
-        xil_printf("POS  is = %d\r\n shape is: %d \r\n\n", pos, s[4]);
+        xil_printf("POS  is = %d\r\n shape is: %d \r\n\n", pos, s[0]);
 
     #endif
-
-    // output to GPU
-    coordinate_output(s[0],pos, 0);
 
     print("Refresh Once\r\n");
 }
@@ -246,14 +279,14 @@ static int *next_shape(void)
 	return next;
 }
 
-//
-static void freeze(int enable)
-{
-    // empty loop to freeze the execution
-    // the enable signal is toggled
-	while (enable)
-    {;}
-}
+// //
+// static void freeze(int enable)
+// {
+//     // empty loop to freeze the execution
+//     // the enable signal is toggled
+// 	while (enable)
+//     {;}
+// }
 
 // use a switch to generate interrupt to clear
 // the running flag
@@ -269,7 +302,13 @@ void exit_handler(void *CallbackRef)
 void IntrButton_U_Handler(void *CallbackRef){
     // toggle the freeze flag
     freeze_flag = !freeze_flag;
-    freeze(freeze_flag);
+
+    if(freeze_flag){
+        ctrl_key = KEY_PAUSE;
+    }else{
+        ctrl_key = KEY_REMAIN;
+    }
+
 
     // set the refresh flag
     refresh_flag = 1;
@@ -558,13 +597,14 @@ int main() {
     xil_printf("\nTimer counter Read value= %d\r\n", DataRead);
 #endif
 
-     /* Initialize board, grey border, used to be white(7) */
+    // initialize board in both software and GPU
 	ptr = board;
 	for (i = B_SIZE; i; i--){
         // i < 2*B_COLS+1 the bottom line of the table
         // i % B_COLS < 2 the left and right boarder of the table
         *ptr++ = i < 2*B_COLS+1 || i % B_COLS < 2 ? 60 : 0;
     }
+    update_board(0,0,CMD_CLR_BOARD);
 	
     // generate a random seed according to time
     my_srand(DataRead);
@@ -584,21 +624,41 @@ int main() {
 				// i % B_COLS < 2 the left and right boarder of the table
 				*ptr++ = i < 2*B_COLS+1 || i % B_COLS < 2 ? 60 : 0;
 			}
+            update_board(0,0,CMD_CLR_BOARD);
         }
-        // refresh the board when the time interrupt happens
+        // refresh the board when the time/button interrupt happens
         if(refresh_flag) {
+            // default is -1,each interrupt will assign ctrl_key a specific value
+            ctrl_key = -1;
+
+            // if this cycle is due to timer 
             if (c < 0) {
-                if (fits_in(shape, pos + B_COLS)) {
+                // chech if the sprite can move downwards further
+                if (fits_in(shape, pos + B_COLS)) 
+                {
+                    //clear the old sprite
+                    update_board(0,pos,CMD_CLR_ONE);
+                    // move to next position
                     pos += B_COLS;
-                } else {
+                } 
+                else        // cannot drop further
+                {
+                    // place the shape in software
                     place(shape, pos, color);
-                    ++points;
+                    // draw the shape with GPU, shape[0] is the type index of shape
+                    update_board(shape[0],pos,CMD_DRAW);
+
+                    // scan the blocks of the board except the boarder to find full line
                     for (j = 0; j < B_SIZE-2*B_COLS; j = B_COLS * (j / B_COLS + 1)) {
                         for (; board[++j];) {
                             if (j % B_COLS == B_COLS-2) {
                                 lines_cleared++;
 
-                                // clear the line
+                                // clear the line with GPU, j-B_COLs+3 is the start pos of the line
+                                // GPU should move the upper line down
+                                update_board(0,j-B_COLS+3,CMD_CLR_LINE);
+
+                                // clear the line in software code
                                 for (; j % B_COLS; board[j--] = 0)
                                 ;
 
@@ -606,11 +666,9 @@ int main() {
                                 for (; --j; board[j + B_COLS] = board[j])
                                 ;
 
-                                // c = update();
                                 // original update method has two functions
                                 // 1st update the board[] array, this is moved to GPU
                                 // 2nd is to get the control input, this is replaced with interrupt
-                                // ctrl_key = -1;
                             }
                         }
                     }
@@ -621,14 +679,22 @@ int main() {
                         #ifdef DEBUG_C
                             print("Full! Stop!\r\n");
                         #endif
+                    }else{
+                        // increase the point when the next shape is ready and it is not full
+                         ++points;
                     }
 
                 }
             }
 
             if (c == keys[KEY_LEFT]) {
-                if (!fits_in(shape, --pos))
-                    ++pos;
+                if (fits_in(shape, pos)){
+                    //clear the old sprite
+                    update_board(0,pos,CMD_CLR_ONE);
+                    // change pos
+                    --pos;  
+                }
+                    
             }
 
             if (c == keys[KEY_ROTATE]) {
@@ -640,24 +706,30 @@ int main() {
             }
 
             if (c == keys[KEY_RIGHT]) {
-                if (!fits_in(shape, ++pos))
-                    --pos;
+                if (fits_in(shape, pos)){
+                    //clear the old sprite
+                    update_board(0,pos,CMD_CLR_ONE);
+                    // change pos
+                    ++pos;
+                }
+                    
             }
 
             if (c == keys[KEY_DROP]) {
-                for (; fits_in(shape, pos + B_COLS); ++points)
+                //clear the old sprite
+                update_board(0,pos,CMD_CLR_ONE);
+                for (; fits_in(shape, pos + B_COLS); ++points){
                     pos += B_COLS;
+                }    
             }
 
-            // pause and quit is handled by the interrupt handler already
-
             place(shape, pos, color);
-            // c = update();
-            // original update method has two functions
-            // 1st update the board[] array, this is moved to GPU
-            // 2nd is to get the control input, this is replaced with interrupt
-            ctrl_key = -1;
-            place(shape, pos, 0);
+            // draw the new sprite at new pos
+            update_board(shape[0],pos,CMD_DRAW);
+
+            // pause 
+            while (ctrl_key == keys[KEY_PAUSE])
+			   ;
 
             // clear the flag, wait until next interrupt
             refresh_flag = 0;
