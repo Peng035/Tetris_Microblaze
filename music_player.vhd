@@ -1,22 +1,3 @@
-----------------------------------------------------------------------------------
--- Company: Chalmers
--- Engineer: Pengfei 
--- 
--- Create Date: 2024/03/04 12:18:27
--- Design Name: 
--- Module Name: music_player - Behavioral
--- Project Name: 
--- Target Devices: 
--- Tool Versions: 
--- Description: 
-
--- Revision:
--- Revision 0.01 - File Created
--- Additional Comments:
--- 
-----------------------------------------------------------------------------------
-
-
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -26,6 +7,9 @@ entity music_player is
   Port (    clk:        in std_logic;
             rst:        in std_logic;
             enable:    in std_logic;
+            mute:       in std_logic;
+            vol_up: in std_logic;
+            vol_down: in std_logic ;
             AUD_PWM:    out std_logic;
             AUD_SD:     out std_logic   
    );
@@ -35,25 +19,14 @@ architecture Behavioral of music_player is
 
 component  tone_generator is
     Port ( clk : in STD_LOGIC;
-           volume : in integer;
-           tone_index : in integer;
+           vol_up : in std_logic;
+           vol_down: in std_logic;
+           mute : in std_logic ;
+           tone_index : in std_logic_vector(5 downto 0);
            AUD_PWM : out STD_LOGIC;
            AUD_SD : out STD_LOGIC);
 end component;
 
---COMPONENT ila_0
-
---PORT (
---	clk : IN STD_LOGIC;
-
-
-
---	probe0 : IN STD_LOGIC_VECTOR(0 DOWNTO 0); 
---	probe1 : IN STD_LOGIC_VECTOR(4 DOWNTO 0); 
---	probe2 : IN STD_LOGIC_VECTOR(1 DOWNTO 0);
---	probe3 : IN STD_LOGIC_VECTOR(3 DOWNTO 0)
---);
---END COMPONENT  ;
 
 type state_type is (idle,
                       fetch_note, 
@@ -61,21 +34,20 @@ type state_type is (idle,
                       );
 type note_table is array (integer range <>) of integer;
 
---constant  T_M : integer := 10000;
+
 -- tempo in bpm                     
 constant TEMPO  : integer := 120;
 -- number of clk cycles for 1/4 beat
-constant QUATER_BEAT : integer := integer(60*25e6/TEMPO);
+constant QUATER_BEAT : integer := integer(60*25e5/TEMPO);
 -- silence cycles after each note
-constant SILENT_GAP:     integer := 5e6;
+constant SILENT_GAP:     integer := 5e5;
 -- number of notes in the music segment
 constant TOTAL_NOTE_NUM : integer := 32;
                       
 signal my_note_table : note_table(0 to TOTAL_NOTE_NUM-1);
 signal my_len_table  : note_table(0 to TOTAL_NOTE_NUM-1);
 
-signal tone_index    : integer range 0 to 31 := 15;
-signal volume       : integer range 0 to 10  :=10;
+signal tone_index    : std_logic_vector( 5 downto 0);
 signal m_Key        : integer range 0 to 10 := 2;
 
 signal current_state : state_type;
@@ -107,19 +79,12 @@ begin
                 clk => clk,
                 AUD_PWM => AUD_PWM,
                 AUD_SD => AUD_SD,
-                volume => volume,
+                vol_up => vol_up,
+                vol_down => vol_down,
+                mute => mute,
                 tone_index => tone_index
         );
-        
--- prob_inst : ila_0
---PORT MAP (
---	clk => clk,
-
---	probe0 => enable_prob, 
---	probe1 => tone_prob,
---	probe2 => cur_state_prob,
---	probe3 => note_len_prob
---);       
+         
         
   my_note_table(0) <=   11; 
   my_note_table(1) <=   13;
@@ -219,13 +184,9 @@ begin
 --  my_len_table(46) <=   1  ;
 --  my_len_table(47) <=   1  ;
   
---  -- debug probe
---  tone_prob <= std_logic_vector(TO_UNSIGNED(tone_index_buff, tone_prob'length));
---  enable_prob(0) <= enable;
---  note_len_prob <= std_logic_vector(TO_UNSIGNED(tone_len_buff, note_len_prob'length));
   
   -- pass the tone index to tone generator
-  tone_index <= tone_index_buff;        
+  tone_index <= std_logic_vector(to_unsigned(tone_index_buff, tone_index'length));      
           
    -- FSM state register
   state_change_proc : process (clk)
@@ -239,7 +200,7 @@ begin
     end if;
   end process state_change_proc;   
         
-  next_state_proc: process(enable, next_note)
+  next_state_proc: process(enable, next_note, current_state)
   begin
         next_state <= current_state;
  
@@ -248,12 +209,10 @@ begin
             if enable = '1' then                    -- start the FSM
                next_state <= fetch_note;
             end if;
-            -- debug probe
-            cur_state_prob <= "00";
+
           when fetch_note =>
             next_state <= play_note;
-            -- debug probe
-            cur_state_prob <= "01";
+
           when play_note =>
             if enable = '1' then                    -- continue to play
                if next_note = '1' then 
@@ -262,8 +221,7 @@ begin
             else
                next_state <= idle;
             end if;
-            -- debug probe
-            cur_state_prob <= "10";
+
         end case;
     end process;      
     
@@ -285,12 +243,14 @@ begin
                 else
                     tone_index_buff <= my_note_table(note_Index) + m_Key;
                 end if;
-                tone_len_buff <= my_len_table(note_Index);   
+                tone_len_buff <= my_len_table(note_Index);  
+                next_note <= '0';  
                       
               when play_note =>
                 -- update the beat cnt to control the tone length
                 if beat_cnt < tone_len_buff * QUATER_BEAT -1 then
                     beat_cnt <= beat_cnt + 1;
+                    next_note <= '0'; 
                 else
                     beat_cnt <= 0;
                     
@@ -312,8 +272,6 @@ begin
             end case;
         end if;
     end process; 
-    
-   
 
 
 end Behavioral;
