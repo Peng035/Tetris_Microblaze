@@ -1,32 +1,8 @@
-----------------------------------------------------------------------------------
--- Company: 
--- Engineer: 
--- 
--- Create Date: 2024/03/04 14:36:07
--- Design Name: 
--- Module Name: tone_generator - Behavioral
--- Project Name: 
--- Target Devices: 
--- Tool Versions: 
--- Description: 
--- 
--- Dependencies: 
--- 
--- Revision:
--- Revision 0.01 - File Created
--- Additional Comments:
--- 
-----------------------------------------------------------------------------------
-
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
--- Uncomment the following library declaration if instantiating
--- any Xilinx leaf cells in this code.
---library UNISIM;
---use UNISIM.VComponents.all;
 
 entity tone_generator is
     Port ( clk : in STD_LOGIC;
@@ -40,7 +16,7 @@ end tone_generator;
 
 architecture Behavioral of tone_generator is
 
-constant MAX_VOLUME : integer := 150;
+constant MAX_VOLUME : integer := 600;
 
 -- the counter to generate correct freq
 signal  cnt : integer range 0 to 5e5;
@@ -50,7 +26,7 @@ signal  PULSE_CNT : integer range 0 to 5e5;
 signal temp: std_logic;
 -- counter to set volume
 --signal vol_buff: integer range 0 to 10 :=6;
-signal volume_reg: integer range 0 to 200 := 50;
+signal volume_reg: integer range 0 to 20 := 4;
 signal mute_reg: integer range 0 to 1 :=1;
 
 signal vol_up_reg1: std_logic;
@@ -63,25 +39,27 @@ signal vol_down_edge: std_logic;
 signal tone_index_reg: std_logic_vector(5 downto 0); 
 
 begin
-
-  edge_proc: process(clk)
+  
+ edge_proc: process(clk)
   begin
-    if rising_edge(clk)then
+    if rising_edge(clk) then
+        vol_up_reg2 <= vol_up_reg1;  -- Shift the previous value
         vol_up_reg1 <= vol_up;
-        vol_up_reg2 <= vol_up_reg1;
-        vol_down_reg1 <= vol_down;
-        vol_down_reg2 <= vol_down_reg1;
         
-        tone_index_reg <= tone_index;
+        vol_down_reg2 <= vol_down_reg1;  -- Shift the previous value
+        vol_down_reg1 <= vol_down;
+        
+        tone_index_reg <= tone_index;  -- Update the tone index
     end if;
   end process;
+
+  vol_up_edge <=  vol_up_reg1 and (not vol_up_reg2);    -- Detect rising edge of vol_up
+  vol_down_edge <=  vol_down_reg1 and (not vol_down_reg2);    -- Detect rising edge of vol_down
   
-  vol_up_edge <=  vol_up_reg1 and (not vol_up_reg2);    -- rising eage of vol_up
-  vol_down_edge <=  vol_down_reg1 and (not vol_down_reg2);    -- rising eage of vol_down
   
  input_proc: process(clk)
     begin
-        if rising_edge(clk) then 
+        if rising_edge(clk) then
             case tone_index_reg is 
                         when "000000"     =>   TOTAL_CNT <= 0 ;
                         when "000001"     =>   TOTAL_CNT <= 20325 ;                
@@ -117,46 +95,43 @@ begin
                         when "011111"     =>   TOTAL_CNT <= 3581  ;              
                         when others        =>   TOTAL_CNT <= 0;
                     end case; 
- 
-        end if;                
+       end if;
     end process;
+   
     
- GEN_PWM_CNT_PROC:  process(clk)
+GEN_PWM_CNT_PROC:  process(clk)
     begin
         if rising_edge (clk) then               
             if  cnt < 2 * TOTAL_CNT - 1 then
                 cnt <= cnt + 1;
             else
                 cnt <= 0;
-                -- change the volume, start with a new pulse
-                PULSE_CNT <= 2 * TOTAL_CNT* volume_reg  / MAX_VOLUME;
             end if; 
         end if;
-
     end process GEN_PWM_CNT_PROC;
-
+  
 
 proc_1: process(clk)
-    begin
+    begin       
         if rising_edge(clk) then 
             if (vol_up_edge = '1') then
-                if volume_reg < MAX_VOLUME then
-                    volume_reg <= volume_reg + 10;
-                else
-                    volume_reg <= MAX_VOLUME;
+                if volume_reg < 32  then  -- Ensure volume does not exceed MAX_VOLUME
+                    volume_reg <= volume_reg + 1;
                 end if;
              end if;
              if (vol_down_edge = '1') then
-                if volume_reg > 10 then
-                    volume_reg <= volume_reg - 10;
-                else
-                    volume_reg <= 0;
+                if volume_reg > 0 then
+                    volume_reg <= volume_reg - 1;
                 end if;
-             end if;
-        end if;      
+             end if;       
+        end if;
     end process;
     
-  proc_2:process(clk )
+   
+    -- Change the volume
+     PULSE_CNT <= 2 * TOTAL_CNT * volume_reg  / MAX_VOLUME;    
+
+proc_2: process(clk)
   begin
     if rising_edge(clk) then          
          if (cnt < PULSE_CNT ) then
@@ -164,29 +139,25 @@ proc_1: process(clk)
          else
             temp <= '0';
          end if;
-        
-         if PULSE_CNT = 0 then      -- index 0 means silence
-            temp <= '0';    
-         end if; 
     end if;     
   end process;  
     
-  OUTPUT_PORC: process(clk)
+OUTPUT_PORC: process(clk)
     begin     
         if falling_edge(clk) then
             if (mute = '1') then
-               AUD_PWM <= 'Z';
+               AUD_PWM <= 'Z';  -- Mute the output
             else
                 if temp = '1' then
-                    AUD_PWM <= 'Z'; 
+                    AUD_PWM <= 'Z';  -- Mute the output during the pulse
                else 
-                   AUD_PWM <= '0';
+                   AUD_PWM <= '0';  -- Output the pulse
                end if;
             end if;       
         end if;
    end process OUTPUT_PORC;
        
-   -- enable the mono audio output
-   AUD_SD <= '1';
+-- Enable the mono audio output
+AUD_SD <= '1';
 
 end Behavioral;
