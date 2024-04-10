@@ -55,8 +55,8 @@
 #define DEBUG_C   1     // macro switch for print info
 
 /* the board */
-#define      B_COLS 24
-#define      B_ROWS 24
+#define      B_COLS 42      // this number should be the GPU col + 2, since no boarder in GPU yet
+#define      B_ROWS 42      // this number should be the GPU row + 2, since no boarder in GPU yet
 #define      B_SIZE (B_ROWS * B_COLS)
 
 // offset to convert the 2D position into an 1D integer array
@@ -70,7 +70,7 @@
 #define BR     B_COLS+1		/* bottom right */
 
 /* These can be overridden by the user. */
-#define DEFAULT_KEYS "abcdefg"
+#define DEFAULT_KEYS "abcdefgh"
 #define KEY_LEFT   0
 #define KEY_RIGHT  1
 #define KEY_ROTATE 2
@@ -78,12 +78,23 @@
 #define KEY_PAUSE  4
 #define KEY_QUIT   5
 #define KEY_RESET  6
-#define KEY_REMAIN -1
+#define KEY_REMAIN 7
 
 #define CMD_DRAW            0
 #define CMD_CLR_ONE         1
 #define CMD_CLR_LINE        2
 #define CMD_CLR_BOARD       3
+
+// mcaros for sprite shapes
+#define S_L_RIGHT    0b000
+#define S_L_LEFT     0b001
+#define S_Z_LEFT     0b010
+#define S_Z_RIGHT    0b011
+#define S_T          0b100
+#define S_SQR        0b101
+#define S_STICK      0b110
+
+#define S_EMPTY      -1
 
 // We only use GPIO 1
 #define GPIO_OUT_CHANNEL 1
@@ -95,7 +106,7 @@ static XGpio Gpio_out;
 static XTmrCtr _axi_timer;
 
 // buffer for GPIO output
-static uint16_t gpio_out_buff = 0;
+static uint32_t gpio_out_buff = 0;
 
 // Game logic related
 static volatile int running = 1;
@@ -127,24 +138,24 @@ static unsigned long int next_rand = 1;
 // [0] index of shape, [1],[2],[3] block offset
 // [4] color of the shape
 static int shapes[] = {
-	 7, TL, TC, MR, 2,	/* ""__   */
-	 8, TR, TC, ML, 3,	/* __""   */
-	 9, ML, MR, BC, 1,	/* "|"    */
-	 3, TL, TC, ML, 4,	/* square */
-	12, ML, BL, MR, 5,	/* |"""   */
-	15, ML, BR, MR, 6,	/* """|   */
-	18, ML, MR,  2, 7,	/* ---- sticks out */
-	 0, TC, ML, BL, 2,	/* /    */
-	 1, TC, MR, BR, 3,	/* \    */
-	10, TC, MR, BC, 1,	/* |-   */
-	11, TC, ML, MR, 1,	/* _|_  */
-	 2, TC, ML, BC, 1,	/* -|   */
-	13, TC, BC, BR, 5,	/* |_   */
-	14, TR, ML, MR, 5,	/* ___| */
-	 4, TL, TC, BC, 5,	/* "|   */
-	16, TR, TC, BC, 6,	/* |"   */
-	17, TL, MR, ML, 6,	/* |___ */
-	 5, TC, BC, BL, 6,	/* _| */
+	 7, TL, TC, MR, 2,	/* ""__   */            // 0
+	 8, TR, TC, ML, 3,	/* __""   */            // 5
+	 9, TL, TC, TR, 1,	/* "|"    */            // 10  modified according to GPU
+	 3, TL, TC, ML, 4,	/* square */            // 15
+	12, ML, BL, MR, 5,	/* |"""   */            // 20
+	15, ML, BR, MR, 6,	/* """|   */            // 25
+	18, ML, MR,  2, 7,	/* ---- sticks out */   // 30
+	 0, TC, ML, BL, 2,	/* /    */              // 35
+	 1, TC, MR, BR, 3,	/* \    */              // 40
+	10, TC, MR, BC, 1,	/* |-   */              // 45
+	11, TC, ML, MR, 1,	/* _|_  */              // 50
+	 2, TC, ML, BC, 1,	/* -|   */              // 55
+	13, TC, BC, BR, 5,	/* |_   */              // 60  
+	14, TR, ML, MR, 5,	/* ___| */              // 65
+	 4, TL, TC, BC, 5,	/* "|   */              // 70
+	16, TR, TC, BC, 6,	/* |"   */              // 75
+	17, TL, MR, ML, 6,	/* |___ */              // 80
+	 5, TC, BC, BL, 6,	/* _| */                // 85
 	 6, TC, BC,  2 * B_COLS, 7, /* | sticks out */
 };
 
@@ -165,50 +176,231 @@ static int fits_in(int *s, int pos)
    // cmd: 3 clear the entire board
  static void  update_board(int s_type, int s_pos, int cmd)
  {
-    int new_pos, i, bit;
+    int new_pos, i, bit, row_index, col_index;
+
+    // clear the buff
+    gpio_out_buff = 0;
+
+    // clear the valid bit of GPIO
+    XGpio_DiscreteWrite(&Gpio_out, GPIO_OUT_CHANNEL, gpio_out_buff);
 
     // convert the pos from center of 3X3 blocks
     // into the top left corner of a 4X4 blocks
     // this also needs to be in consistent with GPU
     // new_pos is [0, 575] since it is 24X24
     // which need 10 bits to represent
-    new_pos = s_pos-2*B_COLS-1;
+    new_pos = s_pos-B_COLS-1;
+    // the column index of the top-left corner of the sprite
+    col_index = new_pos % B_COLS; 
+    // the row index of the top-left corner of the sprite
+    row_index = new_pos / B_COLS;
 
-    // 0-9 bit is the coordinate
-    // 10-12 bit is the shape of sprite (associated with color)
-    // 13-14 reserved for cmd such as pause and restart
-    // bit 15 is the valid flag 1 means gpio out is valid to be read
-    gpio_out_buff |= new_pos &  0b1111111111;
+    // 23 valid bit; 22-19 command bits
+    // 18-16 color bits
+    // 15-13 type of sprite
+    // 12-11 rotation of sprite
+    // 10-6 row coordinate
+    // 5-0 column coordinate
 
+    // set bit 23: the valid flag
+    gpio_out_buff |= 0b1 << 23; 
+
+    // set the command bits
     switch(cmd){
-        case 0:
-            gpio_out_buff |= s_type << 10;
-            gpio_out_buff |= 0b1000000000000000;
+        case CMD_DRAW:
             #ifdef DEBUG_C
                 print("Draw new sprite\r\n");
             #endif
             break;
-        case 1:
-            gpio_out_buff |= 0b1010000000000000;
+        case CMD_CLR_ONE:
+            // cmd 0001
+            gpio_out_buff |= 0b01 << 19;
             #ifdef DEBUG_C
                 print("Clear old sprite\r\n");
             #endif
             break;
-        case 2:
-            gpio_out_buff |= 0b1100000000000000;
+        case CMD_CLR_LINE:
+            // cmd 0010
+            gpio_out_buff |= 0b10 << 19;
             #ifdef DEBUG_C
                 print("Clear a Line\r\n");
             #endif
             break;
-        case 3:
-            gpio_out_buff |= 0b1110000000000000;
+        case CMD_CLR_BOARD:
+            // cmd 0011
+            gpio_out_buff |= 0b11 << 19;
             #ifdef DEBUG_C
                 print("Clear the entire board\r\n");
             #endif
             break;
         default: ;
     }
+
     
+    switch (s_type)
+    {
+    case 13:    // L
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_L_LEFT + 1) << 16;
+        // type
+        gpio_out_buff |= S_L_LEFT << 13;
+        // rotation 
+        // rotation 00
+        break;
+    case 14:    // L rotate 01
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_L_LEFT + 1) << 16;
+        // type
+        gpio_out_buff |= S_L_LEFT << 13;
+        // rotation 
+        gpio_out_buff |= 0b01 << 11;
+        break;
+    case 4:    // L rotate 10
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_L_LEFT + 1) << 16;
+        // type
+        gpio_out_buff |= S_L_LEFT << 13;
+        // rotation 
+        gpio_out_buff |= 0b10 << 11;
+        break;
+    case 12:    // L rotate 11
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_L_LEFT + 1) << 16;
+        // type
+        gpio_out_buff |= S_L_LEFT << 13;
+        // rotation 
+        gpio_out_buff |= 0b11 << 11;
+        break;
+    case 5:    // _| rotate 00
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_L_RIGHT + 1) << 16;
+        // type
+        gpio_out_buff |= S_L_RIGHT << 13;
+        // rotation 
+        // rotation 00
+        break;
+    case 17:    // _| rotate 01
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_L_RIGHT + 1) << 16;
+        // type
+        gpio_out_buff |= S_L_RIGHT << 13;
+        // rotation 
+        gpio_out_buff |= 0b01 << 11;
+        break;
+    case 16:    // _| rotate 10
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_L_RIGHT + 1) << 16;
+        // type
+        gpio_out_buff |= S_L_RIGHT << 13;
+        // rotation 
+        gpio_out_buff |= 0b10 << 11;
+        break;
+    case 15:    // _| rotate 11
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_L_RIGHT + 1) << 16;
+        // type
+        gpio_out_buff |= S_L_RIGHT << 13;
+        // rotation 
+        gpio_out_buff |= 0b11 << 11;
+        break;
+    case 1:    // Z rotate 10
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_Z_LEFT + 1) << 16;
+        // type
+        gpio_out_buff |= S_Z_LEFT << 13;
+        // rotation 
+        gpio_out_buff |= 0b10 << 11;
+        break;
+    case 8:    // Z rotate 11
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_Z_LEFT + 1) << 16;
+        // type
+        gpio_out_buff |= S_Z_LEFT << 13;
+        // rotation 
+        gpio_out_buff |= 0b11 << 11;
+        break;
+    case 0:    // Z mirror rotate 00
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_Z_RIGHT + 1) << 16;
+        // type
+        gpio_out_buff |= S_Z_RIGHT << 13;
+        // rotation 
+        gpio_out_buff |= 0b00 << 11;
+        break;
+    case 7:    // Z mirror rotate 11
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_Z_RIGHT + 1) << 16;
+        // type
+        gpio_out_buff |= S_Z_RIGHT << 13;
+        // rotation 
+        gpio_out_buff |= 0b11 << 11;
+        break;
+    case 9:    // T rotate 00
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_T + 1) << 16;
+        // type
+        gpio_out_buff |= S_T << 13;
+        // rotation 
+        gpio_out_buff |= 0b00 << 11;
+        break;
+    case 10:    // T rotate 01
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_T + 1) << 16;
+        // type
+        gpio_out_buff |= S_T << 13;
+        // rotation 
+        gpio_out_buff |= 0b01 << 11;
+        break;
+    case 11:    // T rotate 10
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_T + 1) << 16;
+        // type
+        gpio_out_buff |= S_T << 13;
+        // rotation 
+        gpio_out_buff |= 0b10 << 11;
+        break;
+    case 2:    // T rotate 11
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_T + 1) << 16;
+        // type
+        gpio_out_buff |= S_T << 13;
+        // rotation 
+        gpio_out_buff |= 0b11 << 11;
+        break;
+    case 3:    // square rotate 00
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_SQR + 1) << 16;
+        // type
+        gpio_out_buff |= S_SQR << 13;
+        // rotation 
+        gpio_out_buff |= 0b00 << 11;
+        break;
+    case 6:    // | rotate 00
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_STICK + 1) << 16;
+        // type
+        gpio_out_buff |= S_STICK << 13;
+        // rotation 
+        gpio_out_buff |= 0b00 << 11;
+        break;
+    case 18:    // | rotate 01
+        // color 0 means black, so color = type + 1 
+        gpio_out_buff |= (S_STICK + 1) << 16;
+        // type
+        gpio_out_buff |= S_STICK << 13;
+        // rotation 
+        gpio_out_buff |= 0b01 << 11;
+        break;
+    
+    default:
+        break;
+    }
+
+    // row index
+    gpio_out_buff |= (row_index & 0b11111) << 6 ;
+    //col index
+    gpio_out_buff |= col_index & 0b111111; 
+
     #ifdef DEBUG_C
         xil_printf("\r\nGPIO output is = 0bx");
         for(i = sizeof(gpio_out_buff) * 8 - 1; i >= 0; i--)
@@ -221,9 +413,6 @@ static int fits_in(int *s, int pos)
 
     // write the GPIO output
     XGpio_DiscreteWrite(&Gpio_out, GPIO_OUT_CHANNEL, gpio_out_buff);
-
-    // clear the buff
-    gpio_out_buff = 0;
 
  }
 
@@ -304,11 +493,10 @@ void IntrButton_U_Handler(void *CallbackRef){
     freeze_flag = !freeze_flag;
 
     if(freeze_flag){
-        ctrl_key = KEY_PAUSE;
+        ctrl_key = keys[KEY_PAUSE];
     }else{
-        ctrl_key = KEY_REMAIN;
+        ctrl_key = keys[KEY_REMAIN];
     }
-
 
     // set the refresh flag
     refresh_flag = 1;
@@ -322,7 +510,7 @@ void IntrButton_U_Handler(void *CallbackRef){
         print("Unfreeze the Game\r\n");
     }
 #endif
-    ctrl_key = keys[KEY_PAUSE];
+
 	// clear interrupt in Interrupt block
 	XIntc_Acknowledge(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_U_INTR);
 }
@@ -604,7 +792,7 @@ int main() {
         // i % B_COLS < 2 the left and right boarder of the table
         *ptr++ = i < 2*B_COLS+1 || i % B_COLS < 2 ? 60 : 0;
     }
-    update_board(0,0,CMD_CLR_BOARD);
+    update_board(S_EMPTY,0,CMD_CLR_BOARD);
 	
     // generate a random seed according to time
     my_srand(DataRead);
@@ -624,23 +812,23 @@ int main() {
 				// i % B_COLS < 2 the left and right boarder of the table
 				*ptr++ = i < 2*B_COLS+1 || i % B_COLS < 2 ? 60 : 0;
 			}
-            update_board(0,0,CMD_CLR_BOARD);
+            update_board(S_EMPTY,0,CMD_CLR_BOARD);
         }
         // refresh the board when the time/button interrupt happens
         if(refresh_flag) {
-            // default is -1,each interrupt will assign ctrl_key a specific value
-            ctrl_key = -1;
+            // default is keys[remain] ,each interrupt will assign ctrl_key a specific value
+            ctrl_key = keys[KEY_REMAIN];
 
-            // if this cycle is due to timer 
-            if (c < 0) {
+            // if this cycle is due to timer
+            if (c = keys[KEY_REMAIN]) {
                 // chech if the sprite can move downwards further
-                if (fits_in(shape, pos + B_COLS)) 
+                if (fits_in(shape, pos + B_COLS))
                 {
                     //clear the old sprite
-                    update_board(0,pos,CMD_CLR_ONE);
+                    update_board(shape[0],pos,CMD_CLR_ONE);
                     // move to next position
                     pos += B_COLS;
-                } 
+                }
                 else        // cannot drop further
                 {
                     // place the shape in software
@@ -656,7 +844,7 @@ int main() {
 
                                 // clear the line with GPU, j-B_COLs+3 is the start pos of the line
                                 // GPU should move the upper line down
-                                update_board(0,j-B_COLS+3,CMD_CLR_LINE);
+                                update_board(S_EMPTY,j-B_COLS+3,CMD_CLR_LINE);
 
                                 // clear the line in software code
                                 for (; j % B_COLS; board[j--] = 0)
@@ -690,11 +878,11 @@ int main() {
             if (c == keys[KEY_LEFT]) {
                 if (fits_in(shape, pos)){
                     //clear the old sprite
-                    update_board(0,pos,CMD_CLR_ONE);
+                    update_board(shape[0],pos,CMD_CLR_ONE);
                     // change pos
-                    --pos;  
+                    --pos;
                 }
-                    
+
             }
 
             if (c == keys[KEY_ROTATE]) {
@@ -708,26 +896,27 @@ int main() {
             if (c == keys[KEY_RIGHT]) {
                 if (fits_in(shape, pos)){
                     //clear the old sprite
-                    update_board(0,pos,CMD_CLR_ONE);
+                    update_board(shape[0],pos,CMD_CLR_ONE);
                     // change pos
                     ++pos;
                 }
-                    
+
             }
 
             if (c == keys[KEY_DROP]) {
                 //clear the old sprite
-                update_board(0,pos,CMD_CLR_ONE);
+                update_board(shape[0],pos,CMD_CLR_ONE);
                 for (; fits_in(shape, pos + B_COLS); ++points){
                     pos += B_COLS;
-                }    
+                }
             }
 
             place(shape, pos, color);
             // draw the new sprite at new pos
             update_board(shape[0],pos,CMD_DRAW);
 
-            // pause 
+            // pause here can only be ctrl_key instead of c, 
+            // otherwise it will never breakout from the loop
             while (ctrl_key == keys[KEY_PAUSE])
 			   ;
 
