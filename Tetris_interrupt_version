@@ -820,7 +820,7 @@ int main() {
             ctrl_key = keys[KEY_REMAIN];
 
             // if this cycle is due to timer
-            if (c = keys[KEY_REMAIN]) {
+            if (c == keys[KEY_REMAIN]) {
                 // chech if the sprite can move downwards further
                 if (fits_in(shape, pos + B_COLS))
                 {
