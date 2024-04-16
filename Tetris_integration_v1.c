@@ -430,7 +430,9 @@ static void place(int *s, int pos, int c)
 	board[pos + s[3]] = c;
 
     #ifdef DEBUG_C
-        xil_printf("\n[Place called] Current POS is = %d\r\n\nCurrent shape is: %d \r\n\n", pos, s[0]);
+		if(!c){
+			xil_printf("\n[Place called] Current POS is = %d\r\n\nCurrent shape is: %d \r\n\n", pos, s[0]);
+		}
 
     #endif
 
@@ -837,6 +839,8 @@ int main() {
     // get next shape
     shape = next_shape();
 
+    ctrl_key = keys[KEY_REMAIN];
+
 	while (running) {
 
 		curr_key =  ctrl_key;
@@ -914,6 +918,9 @@ int main() {
                     if (!fits_in(shape, pos = B_COLS+B_COLS/2)){
                         // when it is full pause there
                         ctrl_key = keys[KEY_PAUSE];
+                        // only when freeze flag is set the interrupt will not change ctrl_key, except the pause/unpause button
+                        freeze_flag =1;
+
                         #ifdef DEBUG_C
                             print("\nFull! Stop!\r\n");
                         #endif
@@ -925,7 +932,7 @@ int main() {
                 }
             }
 
-            if (curr_key == (int)keys[KEY_LEFT]) {
+            if (curr_key == keys[KEY_LEFT]) {
                 if (fits_in(shape, pos)){
                     //clear the old sprite
                     update_board(shape[0],pos,CMD_CLR_ONE);
@@ -935,7 +942,7 @@ int main() {
 
             }
 
-            if (curr_key ==  (int)keys[KEY_ROTATE]) {
+            if (curr_key ==  keys[KEY_ROTATE]) {
                 backup = shape;
                 shape = &shapes[5 * *shape];	/* Rotate */
                 /* Check if it fits, if not restore shape from backup */
@@ -943,7 +950,7 @@ int main() {
                     shape = backup;
             }
 
-            if (curr_key ==  (int)keys[KEY_RIGHT]) {
+            if (curr_key ==  keys[KEY_RIGHT]) {
                 if (fits_in(shape, pos)){
                     //clear the old sprite
                     update_board(shape[0],pos,CMD_CLR_ONE);
@@ -961,9 +968,9 @@ int main() {
                 }
             }
 
-            place(shape, pos, color);
-            // draw the new sprite at new pos
-            update_board(shape[0],pos,CMD_DRAW);
+			place(shape, pos, color);
+			// draw the new sprite at new pos
+			update_board(shape[0],pos,CMD_DRAW);
 
             // pause here can only be ctrl_key instead of curr_key,
             // otherwise it will never breakout from the loop
