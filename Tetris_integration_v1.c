@@ -125,6 +125,10 @@ static int  pcolor;
 static int *shape;
 static int  color;
 
+static int old_shape;
+static int old_pos;
+static int new_pos;
+
 // the int representation of button press
 static char ctrl_key;
 
@@ -614,6 +618,12 @@ void IntrTimerHandler(void *CallbackRef){
 	u8 TmrCtrNumber;
 	u32 ControlStatusReg;
 
+	//clear the old sprite in GPU
+	update_board(shape[0],old_pos,CMD_CLR_ONE);
+
+	// draw new sprite
+	update_board(shape[0],new_pos,CMD_DRAW);
+
     // clear the valid flag of GPIO
     XGpio_DiscreteWrite(&Gpio_out, GPIO_OUT_CHANNEL, gpio_out_buff & 0b0111111111111111);
 
@@ -745,9 +755,12 @@ int main() {
 	char curr_key;
 
 #ifdef DEBUG_C
-//	int temp_cnt_0 = 0;
+
 	int temp_cnt_1 = 0;
 #endif
+	// save the old pos
+	old_pos = pos;
+	new_pos = pos;
 
     Xil_ICacheEnable();
     Xil_DCacheEnable();
@@ -760,7 +773,7 @@ int main() {
 
     // Initialize timer controller
     status = XTmrCtr_Initialize(&_axi_timer, XPAR_TMRCTR_0_DEVICE_ID);
-    XTmrCtr_SetResetValue(&_axi_timer, 0, 0x6FFFFFF);
+    XTmrCtr_SetResetValue(&_axi_timer, 0, 0xAFFFFFF);
     XTmrCtr_SetOptions(&_axi_timer, 0, XTC_INT_MODE_OPTION | XTC_AUTO_RELOAD_OPTION | XTC_DOWN_COUNT_OPTION);
 
     // Initialize interrupt controller
@@ -821,10 +834,6 @@ int main() {
     XTmrCtr *temp = &_axi_timer;
     DataRead = XTmrCtr_ReadReg(temp->BaseAddress, 0, XTC_TCR_OFFSET);
 
-//#ifdef DEBUG_C
-//    xil_printf("\nTimer counter Read value= %d\r\n", DataRead);
-//#endif
-
     // initialize board in both software and GPU
 	ptr = board;
 	for (i = B_SIZE; i; i--){
@@ -838,6 +847,7 @@ int main() {
     my_srand(DataRead);
     // get next shape
     shape = next_shape();
+    old_shape = *shape;
 
     ctrl_key = keys[KEY_REMAIN];
 
@@ -875,11 +885,16 @@ int main() {
                 // chech if the sprite can move downwards further
                 if (fits_in(shape, pos + B_COLS))
                 {
+                	// save the old pos
+					old_pos = pos;
                     //clear the old sprite for GPU
-                    update_board(shape[0],pos,CMD_CLR_ONE);
+//                    update_board(shape[0],old_pos,CMD_CLR_ONE);
+                    // clear old sprit for game logic
+                    place(shape, pos, 0);
 
                     // move to next position
                     pos += B_COLS;
+                    new_pos = pos;
                 }
                 else        // cannot drop further
                 {
@@ -906,14 +921,13 @@ int main() {
                                 for (; --j; board[j + B_COLS] = board[j])
                                 ;
 
-                                // original update method has two functions
-                                // 1st update the board[] array, this is moved to GPU
-                                // 2nd is to get the control input, this is replaced with interrupt
                             }
                         }
                     }
 
+                    old_shape = *shape;
                     shape = next_shape();
+
 
                     if (!fits_in(shape, pos = B_COLS+B_COLS/2)){
                         // when it is full pause there
@@ -929,48 +943,86 @@ int main() {
                          ++points;
                     }
 
+                    new_pos = pos;
+
                 }
             }
 
             if (curr_key == keys[KEY_LEFT]) {
                 if (fits_in(shape, pos)){
+                	// clear old sprit for game logic
+					place(shape, pos, 0);
+					// save the old pos
+					old_pos = pos;
                     //clear the old sprite
-                    update_board(shape[0],pos,CMD_CLR_ONE);
+//                    update_board(shape[0],pos,CMD_CLR_ONE);
                     // change pos
-                    --pos;
+					--pos;
+					new_pos = pos;
+
+					//clear the old sprite in GPU
+					update_board(shape[0],old_pos,CMD_CLR_ONE);
+					// draw new sprite
+					update_board(shape[0],new_pos,CMD_DRAW);
                 }
 
             }
 
             if (curr_key ==  keys[KEY_ROTATE]) {
                 backup = shape;
+                old_shape = *shape;
                 shape = &shapes[5 * *shape];	/* Rotate */
                 /* Check if it fits, if not restore shape from backup */
-                if (!fits_in(shape, pos))
+                if (!fits_in(shape, pos)){
                     shape = backup;
+                }
+                else{		// fit update the board
+                	// save the old pos
+					old_pos = pos;
+                	//clear the old sprite
+					update_board(old_shape,pos,CMD_CLR_ONE);
+					// clear old sprit for game logic
+					place(shape, pos, 0);
+					// draw the new sprite at new pos
+					update_board(shape[0],pos,CMD_DRAW);
+                }
             }
 
             if (curr_key ==  keys[KEY_RIGHT]) {
                 if (fits_in(shape, pos)){
+                	// save the old pos
+					old_pos = pos;
                     //clear the old sprite
-                    update_board(shape[0],pos,CMD_CLR_ONE);
+//                    update_board(shape[0],pos,CMD_CLR_ONE);
+                    // clear old sprit for game logic
+                    place(shape, pos, 0);
                     // change pos
                     ++pos;
+                    new_pos = pos;
+                	//clear the old sprite in GPU
+                	update_board(shape[0],old_pos,CMD_CLR_ONE);
+                	// draw new sprite
+                	update_board(shape[0],new_pos,CMD_DRAW);
                 }
 
             }
 
             if (curr_key ==  keys[KEY_DROP]) {
+            	// save the old pos
+				old_pos = pos;
                 //clear the old sprite
-                update_board(shape[0],pos,CMD_CLR_ONE);
+//                update_board(shape[0],pos,CMD_CLR_ONE);
+                // clear old sprit for game logic
+				place(shape, pos, 0);
                 for (; fits_in(shape, pos + B_COLS); ++points){
                     pos += B_COLS;
+                    new_pos = pos;
                 }
             }
 
 			place(shape, pos, color);
 			// draw the new sprite at new pos
-			update_board(shape[0],pos,CMD_DRAW);
+//			update_board(shape[0],pos,CMD_DRAW);
 
             // pause here can only be ctrl_key instead of curr_key,
             // otherwise it will never breakout from the loop
@@ -980,6 +1032,11 @@ int main() {
             // clear the flag, wait until next interrupt
             refresh_flag = 0;
 
+            // save the old pos
+//            old_pos = pos;
+
+        	//clear the old sprite in GPU
+//        	update_board(old_shape,old_pos,CMD_CLR_ONE);
             // clear old sprit for game logic
 			place(shape, pos, 0);
 
@@ -991,4 +1048,3 @@ int main() {
     Xil_ICacheDisable();
     return 0;
 }
-
