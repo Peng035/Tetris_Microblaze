@@ -409,8 +409,8 @@ static int fits_in(int *s, int pos)
 		if (cmd == CMD_DRAW){
 			xil_printf("\r\nSprite Type = %d\r\n", s_type);
 			xil_printf("\r\nRotation Type = %d\r\n", (gpio_out_buff>>11) & 3);
-			xil_printf("\r\nRow Index  = = %d\r\n", row_index);
-			xil_printf("\r\nCol Index  = = %d\r\n", col_index);
+			xil_printf("\r\nRow Index  =  %d\r\n", row_index);
+			xil_printf("\r\nCol Index  =  %d\r\n", col_index);
 		}
 	#endif
 
@@ -619,7 +619,7 @@ void IntrTimerHandler(void *CallbackRef){
 	u32 ControlStatusReg;
 
 	//clear the old sprite in GPU
-	update_board(shape[0],old_pos,CMD_CLR_ONE);
+//	update_board(shape[0],old_pos,CMD_CLR_ONE);
 
 	// draw new sprite
 	update_board(shape[0],new_pos,CMD_DRAW);
@@ -869,13 +869,11 @@ int main() {
         }
         // refresh the board when the time/button interrupt happens
         if(refresh_flag) {
-            // default is keys[remain] ,each interrupt will assign ctrl_key a specific value
-//            ctrl_key = keys[KEY_REMAIN];
 
 		#ifdef DEBUG_C
         	temp_cnt_1++;
         	xil_printf("\nRefresh operation for %d times\r\n", temp_cnt_1);
-        	xil_printf("\ncurr_key = %d\r\n", curr_key);
+        	xil_printf("\ncurr_key = %c\r\n", curr_key);
         	xil_printf("\nOld pos = %d\r\n", pos);
 		#endif
 
@@ -888,7 +886,7 @@ int main() {
                 	// save the old pos
 					old_pos = pos;
                     //clear the old sprite for GPU
-//                    update_board(shape[0],old_pos,CMD_CLR_ONE);
+                    update_board(shape[0],old_pos,CMD_CLR_ONE);
                     // clear old sprit for game logic
                     place(shape, pos, 0);
 
@@ -954,8 +952,6 @@ int main() {
 					place(shape, pos, 0);
 					// save the old pos
 					old_pos = pos;
-                    //clear the old sprite
-//                    update_board(shape[0],pos,CMD_CLR_ONE);
                     // change pos
 					--pos;
 					new_pos = pos;
@@ -963,7 +959,7 @@ int main() {
 					//clear the old sprite in GPU
 					update_board(shape[0],old_pos,CMD_CLR_ONE);
 					// draw new sprite
-					update_board(shape[0],new_pos,CMD_DRAW);
+//					update_board(shape[0],new_pos,CMD_DRAW);
                 }
 
             }
@@ -984,7 +980,7 @@ int main() {
 					// clear old sprit for game logic
 					place(shape, pos, 0);
 					// draw the new sprite at new pos
-					update_board(shape[0],pos,CMD_DRAW);
+//					update_board(shape[0],pos,CMD_DRAW);
                 }
             }
 
@@ -992,8 +988,6 @@ int main() {
                 if (fits_in(shape, pos)){
                 	// save the old pos
 					old_pos = pos;
-                    //clear the old sprite
-//                    update_board(shape[0],pos,CMD_CLR_ONE);
                     // clear old sprit for game logic
                     place(shape, pos, 0);
                     // change pos
@@ -1001,8 +995,8 @@ int main() {
                     new_pos = pos;
                 	//clear the old sprite in GPU
                 	update_board(shape[0],old_pos,CMD_CLR_ONE);
-                	// draw new sprite
-                	update_board(shape[0],new_pos,CMD_DRAW);
+//                	// draw new sprite
+//                	update_board(shape[0],new_pos,CMD_DRAW);
                 }
 
             }
@@ -1011,7 +1005,7 @@ int main() {
             	// save the old pos
 				old_pos = pos;
                 //clear the old sprite
-//                update_board(shape[0],pos,CMD_CLR_ONE);
+                update_board(shape[0],pos,CMD_CLR_ONE);
                 // clear old sprit for game logic
 				place(shape, pos, 0);
                 for (; fits_in(shape, pos + B_COLS); ++points){
@@ -1022,7 +1016,7 @@ int main() {
 
 			place(shape, pos, color);
 			// draw the new sprite at new pos
-//			update_board(shape[0],pos,CMD_DRAW);
+			update_board(shape[0],pos,CMD_DRAW);
 
             // pause here can only be ctrl_key instead of curr_key,
             // otherwise it will never breakout from the loop
@@ -1037,6 +1031,7 @@ int main() {
 
         	//clear the old sprite in GPU
 //        	update_board(old_shape,old_pos,CMD_CLR_ONE);
+
             // clear old sprit for game logic
 			place(shape, pos, 0);
 
