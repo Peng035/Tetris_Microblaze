@@ -86,8 +86,8 @@
 #define CMD_CLR_BOARD       3
 
 // mcaros for sprite shapes
-#define S_L_RIGHT    0b000
-#define S_L_LEFT     0b001
+#define S_L_LEFT     0b000
+#define S_L_RIGHT    0b001
 #define S_Z_RIGHT    0b010
 #define S_Z_LEFT     0b011
 #define S_T          0b100
@@ -446,7 +446,7 @@ static void place(int *s, int pos, int c)
 // my function to generate a pseudo random number
 // on bare-metal Microblaze
 int my_rand(void) {
-    next_rand = next_rand * 1103515245 + 12345;
+    next_rand = next_rand * 1023515645 + 12345;
     return (unsigned int)(next_rand / 65536) % 32768;
 }
 // my function to create random seed on Microblaze
@@ -617,7 +617,7 @@ void IntrTimerHandler(void *CallbackRef){
 	update_board(shape[0],s_new_pos,CMD_DRAW);
 
     // clear the valid flag of GPIO
-    XGpio_DiscreteWrite(&Gpio_out, GPIO_OUT_CHANNEL, gpio_out_buff & 0b0111111111111111);
+    XGpio_DiscreteWrite(&Gpio_out, GPIO_OUT_CHANNEL, gpio_out_buff & 0b0011111111111111);
 
     // set the refresh flag
     refresh_flag = 1;
@@ -822,10 +822,6 @@ int main() {
     // Start timer
     XTmrCtr_Start(&_axi_timer, 0);
 
-    // Read timer counter
-    XTmrCtr *temp = &_axi_timer;
-    DataRead = XTmrCtr_ReadReg(temp->BaseAddress, 0, XTC_TCR_OFFSET);
-
     // initialize board in both software and GPU
 	ptr = board;
 	for (i = B_SIZE; i; i--){
@@ -834,6 +830,10 @@ int main() {
         *ptr++ = i < 2*B_COLS+1 || i % B_COLS < 2 ? 7 : 0;
     }
     update_board(S_EMPTY,0,CMD_CLR_BOARD);
+
+    // Read timer counter
+    XTmrCtr *temp = &_axi_timer;
+    DataRead = XTmrCtr_ReadReg(temp->BaseAddress, 0, XTC_TCR_OFFSET);
 	
     // generate a random seed according to time
     my_srand(DataRead);
