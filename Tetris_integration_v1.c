@@ -88,8 +88,8 @@
 // mcaros for sprite shapes
 #define S_L_RIGHT    0b000
 #define S_L_LEFT     0b001
-#define S_Z_LEFT     0b010
-#define S_Z_RIGHT    0b011
+#define S_Z_RIGHT    0b010
+#define S_Z_LEFT     0b011
 #define S_T          0b100
 #define S_SQR        0b101
 #define S_STICK      0b110
@@ -127,7 +127,7 @@ static int  color;
 
 static int old_shape;
 static int old_pos;
-static int new_pos;
+static int s_new_pos;
 
 // the int representation of button press
 static char ctrl_key;
@@ -150,7 +150,7 @@ static int shapes[] = {
 	15, ML, BR, MR, 6,	/* """|   */            // 25
 	18, ML, MR,  2, 7,	/* ---- sticks out */   // 30
 	 0, TC, ML, BL, 2,	/* /    */              // 35
-	 1, TC, MR, BR, 3,	/* \    */              // 40
+	 1, TL, ML, BC, 3,	/* \    */              // 40
 	10, TC, MR, BC, 1,	/* |-   */              // 45
 	11, TC, ML, MR, 1,	/* _|_  */              // 50
 	 2, TC, ML, BC, 1,	/* -|   */              // 55
@@ -243,13 +243,13 @@ static int fits_in(int *s, int pos)
 
     switch (s_type)
     {
-    case 13:    // L
+    case 13:    // L rotation 00
         // color 0 means black, so color = type + 1
         gpio_out_buff |= (S_L_LEFT + 1) << 16;
         // type
         gpio_out_buff |= S_L_LEFT << 13;
         // rotation
-        // rotation 00
+        gpio_out_buff |= 0b00 << 11;
         break;
     case 14:    // L rotate 01
         // color 0 means black, so color = type + 1
@@ -307,23 +307,7 @@ static int fits_in(int *s, int pos)
         // rotation
         gpio_out_buff |= 0b11 << 11;
         break;
-    case 1:    // Z rotate 10
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_Z_LEFT + 1) << 16;
-        // type
-        gpio_out_buff |= S_Z_LEFT << 13;
-        // rotation
-        gpio_out_buff |= 0b10 << 11;
-        break;
-    case 8:    // Z rotate 11
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_Z_LEFT + 1) << 16;
-        // type
-        gpio_out_buff |= S_Z_LEFT << 13;
-        // rotation
-        gpio_out_buff |= 0b11 << 11;
-        break;
-    case 0:    // Z mirror rotate 00
+    case 1:    // Z mirror rotate 00
         // color 0 means black, so color = type + 1
         gpio_out_buff |= (S_Z_RIGHT + 1) << 16;
         // type
@@ -331,11 +315,27 @@ static int fits_in(int *s, int pos)
         // rotation
         gpio_out_buff |= 0b00 << 11;
         break;
-    case 7:    // Z mirror rotate 11
+    case 8:    // Z mirror rotate 11
         // color 0 means black, so color = type + 1
         gpio_out_buff |= (S_Z_RIGHT + 1) << 16;
         // type
         gpio_out_buff |= S_Z_RIGHT << 13;
+        // rotation
+        gpio_out_buff |= 0b11 << 11;
+        break;
+    case 0:    // Z rotate 00
+        // color 0 means black, so color = type + 1
+        gpio_out_buff |= (S_Z_LEFT + 1) << 16;
+        // type
+        gpio_out_buff |= S_Z_LEFT << 13;
+        // rotation
+        gpio_out_buff |= 0b00 << 11;
+        break;
+    case 7:    // Z rotate 11
+        // color 0 means black, so color = type + 1
+        gpio_out_buff |= (S_Z_LEFT + 1) << 16;
+        // type
+        gpio_out_buff |= S_Z_LEFT << 13;
         // rotation
         gpio_out_buff |= 0b11 << 11;
         break;
@@ -479,14 +479,6 @@ static int *next_shape(void)
 	return next;
 }
 
-// //
-// static void freeze(int enable)
-// {
-//     // empty loop to freeze the execution
-//     // the enable signal is toggled
-// 	while (enable)
-//     {;}
-// }
 
 // use a switch to generate interrupt to clear
 // the running flag
@@ -622,7 +614,7 @@ void IntrTimerHandler(void *CallbackRef){
 //	update_board(shape[0],old_pos,CMD_CLR_ONE);
 
 	// draw new sprite
-	update_board(shape[0],new_pos,CMD_DRAW);
+	update_board(shape[0],s_new_pos,CMD_DRAW);
 
     // clear the valid flag of GPIO
     XGpio_DiscreteWrite(&Gpio_out, GPIO_OUT_CHANNEL, gpio_out_buff & 0b0111111111111111);
@@ -760,7 +752,7 @@ int main() {
 #endif
 	// save the old pos
 	old_pos = pos;
-	new_pos = pos;
+	s_new_pos = pos;
 
     Xil_ICacheEnable();
     Xil_DCacheEnable();
@@ -839,7 +831,7 @@ int main() {
 	for (i = B_SIZE; i; i--){
         // i < 2*B_COLS+1 the bottom line of the table
         // i % B_COLS < 2 the left and right boarder of the table
-        *ptr++ = i < 2*B_COLS+1 || i % B_COLS < 2 ? 60 : 0;
+        *ptr++ = i < 2*B_COLS+1 || i % B_COLS < 2 ? 7 : 0;
     }
     update_board(S_EMPTY,0,CMD_CLR_BOARD);
 	
@@ -892,7 +884,7 @@ int main() {
 
                     // move to next position
                     pos += B_COLS;
-                    new_pos = pos;
+                    s_new_pos = pos;
                 }
                 else        // cannot drop further
                 {
@@ -941,25 +933,24 @@ int main() {
                          ++points;
                     }
 
-                    new_pos = pos;
+                    s_new_pos = pos;
 
                 }
             }
 
             if (curr_key == keys[KEY_LEFT]) {
-                if (fits_in(shape, pos)){
+
+
+                if (fits_in(shape, pos-1)){
                 	// clear old sprit for game logic
 					place(shape, pos, 0);
 					// save the old pos
 					old_pos = pos;
-                    // change pos
+	                // change pos
 					--pos;
-					new_pos = pos;
-
+					s_new_pos = pos;
 					//clear the old sprite in GPU
 					update_board(shape[0],old_pos,CMD_CLR_ONE);
-					// draw new sprite
-//					update_board(shape[0],new_pos,CMD_DRAW);
                 }
 
             }
@@ -979,20 +970,18 @@ int main() {
 					update_board(old_shape,pos,CMD_CLR_ONE);
 					// clear old sprit for game logic
 					place(shape, pos, 0);
-					// draw the new sprite at new pos
-//					update_board(shape[0],pos,CMD_DRAW);
                 }
             }
 
             if (curr_key ==  keys[KEY_RIGHT]) {
-                if (fits_in(shape, pos)){
+                if (fits_in(shape, pos+1)){
                 	// save the old pos
 					old_pos = pos;
                     // clear old sprit for game logic
                     place(shape, pos, 0);
                     // change pos
                     ++pos;
-                    new_pos = pos;
+                    s_new_pos = pos;
                 	//clear the old sprite in GPU
                 	update_board(shape[0],old_pos,CMD_CLR_ONE);
 //                	// draw new sprite
@@ -1010,7 +999,7 @@ int main() {
 				place(shape, pos, 0);
                 for (; fits_in(shape, pos + B_COLS); ++points){
                     pos += B_COLS;
-                    new_pos = pos;
+                    s_new_pos = pos;
                 }
             }
 
