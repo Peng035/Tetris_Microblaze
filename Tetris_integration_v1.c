@@ -205,8 +205,7 @@ static void  update_board(int s_type, int s_pos, int cmd)
     // 10-6 row coordinate
     // 5-0 column coordinate
 
-    // set bit 23: the valid flag
-    gpio_out_buff |= 0b1 << 23;
+
 
     // set the command bits
     switch(cmd){
@@ -468,6 +467,9 @@ static void  update_board(int s_type, int s_pos, int cmd)
 		xil_printf("\r\nRow Index  =  %d\r\n", row_index);
 		xil_printf("\r\nCol Index  =  %d\r\n", col_index);
 	#endif
+
+	// set bit 23: the valid flag
+	gpio_out_buff |= 0b1 << 23;
 
     // write the GPIO output
     XGpio_DiscreteWrite(&Gpio_out, GPIO_OUT_CHANNEL, gpio_out_buff);
@@ -787,12 +789,12 @@ int main() {
     #endif
 
     // Connect interrupt handlers for buttons
-    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONUP_INTR, (XInterruptHandler)IntrButton_U_Handler, &Gpio_out);
-    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONLEFT_INTR, (XInterruptHandler)IntrButton_L_Handler, &Gpio_out);
-    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONRIGHT_INTR, (XInterruptHandler)IntrButton_R_Handler, &Gpio_out);
-    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONDOWN_INTR, (XInterruptHandler)IntrButton_D_Handler, &Gpio_out);
-    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONMIDDLE_INTR, (XInterruptHandler)IntrButton_C_Handler, &Gpio_out);
-    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_RESTART_S_INTR, (XInterruptHandler)Intr_Restart_Handler, &Gpio_out);
+    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONUP_INTR, (XInterruptHandler)IntrButton_U_Handler, NULL);
+    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONLEFT_INTR, (XInterruptHandler)IntrButton_L_Handler, NULL);
+    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONRIGHT_INTR, (XInterruptHandler)IntrButton_R_Handler, NULL);
+    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONDOWN_INTR, (XInterruptHandler)IntrButton_D_Handler, NULL);
+    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONMIDDLE_INTR, (XInterruptHandler)IntrButton_C_Handler, NULL);
+    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_RESTART_S_INTR, (XInterruptHandler)Intr_Restart_Handler, NULL);
 
 
     // Enable interrupts for buttons
@@ -949,53 +951,57 @@ int main() {
 			}
 			else        // cannot drop further
 			{
-				// place the shape in software
-				place(shape, pos, color);
-				// draw the new sprite at new pos
-				update_board(shape[0],pos,CMD_DRAW);
+				if (curr_key !=  keys[KEY_DROP])
+				{
+					// place the shape in software
+					place(shape, pos, color);
+					// draw the new sprite at new pos
+					update_board(shape[0],pos,CMD_DRAW);
 
-				// scan the blocks of the board except the boarder to find full line
-				for (j = 0; j < B_SIZE-2*B_COLS; j = B_COLS * (j / B_COLS + 1)) {
-					for (; board[++j];) {
-						if (j % B_COLS == B_COLS-2) {
-							lines_cleared++;
+					// scan the blocks of the board except the boarder to find full line
+					for (j = 0; j < B_SIZE-2*B_COLS; j = B_COLS * (j / B_COLS + 1)) {
+						for (; board[++j];) {
+							if (j % B_COLS == B_COLS-2) {
+								lines_cleared++;
 
-							// clear the line with GPU, j-B_COLs+3 is the start pos of the line
-							// GPU should move the upper line down
-							update_board(S_EMPTY,j-B_COLS+3,CMD_CLR_LINE);
+								// clear the line with GPU, j-B_COLs+3 is the start pos of the line
+								// GPU should move the upper line down
+								update_board(S_EMPTY,j-B_COLS+3,CMD_CLR_LINE);
 
-							// clear the line in software code
-							for (; j % B_COLS; board[j--] = 0)
-							;
+								// clear the line in software code
+								for (; j % B_COLS; board[j--] = 0)
+								;
 
-							// move the upper row down after clear one line
-							for (; --j; board[j + B_COLS] = board[j])
-							;
+								// move the upper row down after clear one line
+								for (; --j; board[j + B_COLS] = board[j])
+								;
 
+							}
 						}
 					}
+
+					old_shape = *shape;
+					shape = next_shape();
+
+					if (!fits_in(shape, pos = B_COLS+B_COLS/2)){
+						// when it is full pause there
+						ctrl_key = keys[KEY_PAUSE];
+						// only when freeze flag is set the interrupt will not change ctrl_key, except the pause/unpause button
+						freeze_flag =1;
+						// full make the pos one row above
+						pos = B_COLS/2;
+
+						#ifdef DEBUG_C
+							print("\nFull! Stop!\r\n");
+						#endif
+					}else{
+						// increase the point when the next shape is ready and it is not full
+						 ++points;
+					}
+
+					s_new_pos = pos;
 				}
 
-				old_shape = *shape;
-				shape = next_shape();
-
-				if (!fits_in(shape, pos = B_COLS+B_COLS/2)){
-					// when it is full pause there
-					ctrl_key = keys[KEY_PAUSE];
-					// only when freeze flag is set the interrupt will not change ctrl_key, except the pause/unpause button
-					freeze_flag =1;
-					// full make the pos one row above
-					pos = B_COLS/2;
-
-					#ifdef DEBUG_C
-						print("\nFull! Stop!\r\n");
-					#endif
-				}else{
-					// increase the point when the next shape is ready and it is not full
-					 ++points;
-				}
-
-				s_new_pos = pos;
 			}
 
 
