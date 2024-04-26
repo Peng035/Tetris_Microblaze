@@ -52,7 +52,7 @@
 #include "xil_printf.h"
 #include "xil_exception.h"
 
-// #define DEBUG_C   1     // macro switch for print info
+ #define DEBUG_C   1     // macro switch for print info
 
 /* the board */
 #define      B_COLS 32      // this number should be the GPU col + 2, since no boarder in GPU yet
@@ -250,114 +250,210 @@ static void  update_board(int s_type, int s_pos, int cmd)
         gpio_out_buff |= S_L_LEFT << 13;
         // rotation
         gpio_out_buff |= 0b00 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = L , rotation 00\r\n");
+#endif
+
         break;
     case 14:    // L rotate 01
         // type
         gpio_out_buff |= S_L_LEFT << 13;
         // rotation
         gpio_out_buff |= 0b01 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = L , rotation 01\r\n");
+#endif
+
         break;
     case 4:    // L rotate 10
         // type
         gpio_out_buff |= S_L_LEFT << 13;
         // rotation
         gpio_out_buff |= 0b10 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = L , rotation 10\r\n");
+#endif
+
         break;
     case 12:    // L rotate 11
         // type
         gpio_out_buff |= S_L_LEFT << 13;
         // rotation
         gpio_out_buff |= 0b11 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = L , rotation 11\r\n");
+#endif
+
         break;
     case 5:    // _| rotate 00
         // type
         gpio_out_buff |= S_L_RIGHT << 13;
         // rotation
         // rotation 00
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = L mirror , rotation 00\r\n");
+#endif
+
         break;
     case 17:    // _| rotate 01
         // type
         gpio_out_buff |= S_L_RIGHT << 13;
         // rotation
         gpio_out_buff |= 0b01 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = L mirror, rotation 01\r\n");
+#endif
+
         break;
     case 16:    // _| rotate 10
         // type
         gpio_out_buff |= S_L_RIGHT << 13;
         // rotation
         gpio_out_buff |= 0b10 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = L mirror , rotation 10\r\n");
+#endif
+
         break;
     case 15:    // _| rotate 11
         // type
         gpio_out_buff |= S_L_RIGHT << 13;
         // rotation
         gpio_out_buff |= 0b11 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = L mirror , rotation 11\r\n");
+#endif
+
         break;
     case 1:    // Z mirror rotate 00
         // type
         gpio_out_buff |= S_Z_RIGHT << 13;
         // rotation
         gpio_out_buff |= 0b00 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = Z mirror , rotation 00\r\n");
+#endif
+
         break;
     case 8:    // Z mirror rotate 11
         // type
         gpio_out_buff |= S_Z_RIGHT << 13;
         // rotation
         gpio_out_buff |= 0b11 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = Z mirror , rotation 11\r\n");
+#endif
+
         break;
     case 0:    // Z rotate 00
         // type
         gpio_out_buff |= S_Z_LEFT << 13;
         // rotation
         gpio_out_buff |= 0b00 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = Z , rotation 00\r\n");
+#endif
+
         break;
     case 7:    // Z rotate 11
         // type
         gpio_out_buff |= S_Z_LEFT << 13;
         // rotation
         gpio_out_buff |= 0b11 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = Z , rotation 11\r\n");
+#endif
+
         break;
     case 9:    // T rotate 00
         // type
         gpio_out_buff |= S_T << 13;
         // rotation
         gpio_out_buff |= 0b00 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = T , rotation 00\r\n");
+#endif
+
         break;
     case 10:    // T rotate 01
         // type
         gpio_out_buff |= S_T << 13;
         // rotation
         gpio_out_buff |= 0b01 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = T , rotation 01\r\n");
+#endif
+
         break;
     case 11:    // T rotate 10
         // type
         gpio_out_buff |= S_T << 13;
         // rotation
         gpio_out_buff |= 0b10 << 11;
+
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = T , rotation 10\r\n");
+#endif
+
         break;
     case 2:    // T rotate 11
         // type
         gpio_out_buff |= S_T << 13;
         // rotation
         gpio_out_buff |= 0b11 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = T , rotation 11\r\n");
+#endif
+
         break;
     case 3:    // square rotate 00
         // type
         gpio_out_buff |= S_SQR << 13;
         // rotation
         gpio_out_buff |= 0b00 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = Square , rotation 00\r\n");
+#endif
+
         break;
     case 6:    // | rotate 00
         // type
         gpio_out_buff |= S_STICK << 13;
         // rotation
         gpio_out_buff |= 0b00 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = | , rotation 00\r\n");
+#endif
+
         break;
     case 18:    // | rotate 01
         // type
         gpio_out_buff |= S_STICK << 13;
         // rotation
         gpio_out_buff |= 0b01 << 11;
+
+#ifdef DEBUG_C
+        xil_printf("\r\nSprite Type = --- , rotation 01\r\n");
+#endif
+
         break;
 
     default:
@@ -370,12 +466,8 @@ static void  update_board(int s_type, int s_pos, int cmd)
     gpio_out_buff |= col_index & 0b111111;
 
     #ifdef DEBUG_C
-		if (cmd == CMD_DRAW){
-			xil_printf("\r\nSprite Type = %d\r\n", s_type);
-			xil_printf("\r\nRotation Type = %d\r\n", (gpio_out_buff>>11) & 3);
-			xil_printf("\r\nRow Index  =  %d\r\n", row_index);
-			xil_printf("\r\nCol Index  =  %d\r\n", col_index);
-		}
+		xil_printf("\r\nRow Index  =  %d\r\n", row_index);
+		xil_printf("\r\nCol Index  =  %d\r\n", col_index);
 	#endif
 
     // write the GPIO output
@@ -786,7 +878,9 @@ int main() {
         // i % B_COLS < 2 the left and right boarder of the table
         *ptr++ = i < 2*B_COLS+1 || i % B_COLS < 2 ? 7 : 0;
     }
-    update_board(S_EMPTY,0,CMD_CLR_BOARD);
+	// the initial position is B_COLS+1 due to C code and GPU use different blocks
+	// C code uses 3X3 center is the middle, GPU use 4X4 and the center is top-left
+    update_board(S_EMPTY,B_COLS+1,CMD_CLR_BOARD);
 
     // Read timer counter
     XTmrCtr *temp = &_axi_timer;
@@ -814,7 +908,7 @@ int main() {
 				// i % B_COLS < 2 the left and right boarder of the table
 				*ptr++ = i < 2*B_COLS+1 || i % B_COLS < 2 ? 60 : 0;
 			}
-            update_board(S_EMPTY,0,CMD_CLR_BOARD);
+            update_board(S_EMPTY,B_COLS+1,CMD_CLR_BOARD);
         }
         // refresh the board when the time/button interrupt happens
         if(refresh_flag) {
@@ -944,6 +1038,8 @@ int main() {
 						ctrl_key = keys[KEY_PAUSE];
 						// only when freeze flag is set the interrupt will not change ctrl_key, except the pause/unpause button
 						freeze_flag =1;
+						// full make the pos one row above
+						pos = B_COLS/2;
 
 						#ifdef DEBUG_C
 							print("\nFull! Stop!\r\n");
