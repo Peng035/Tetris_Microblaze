@@ -52,7 +52,7 @@
 #include "xil_printf.h"
 #include "xil_exception.h"
 
- #define DEBUG_C   1     // macro switch for print info
+// #define DEBUG_C   1     // macro switch for print info
 
 /* the board */
 #define      B_COLS 32      // this number should be the GPU col + 2, since no boarder in GPU yet
@@ -183,7 +183,7 @@ static void  update_board(int s_type, int s_pos, int cmd)
     int new_pos, row_index, col_index;
 
     // clear the buff
-    gpio_out_buff = 0;
+    gpio_out_buff &= 0;
 
     // clear the valid bit of GPIO
     XGpio_DiscreteWrite(&Gpio_out, GPIO_OUT_CHANNEL, gpio_out_buff);
@@ -199,8 +199,7 @@ static void  update_board(int s_type, int s_pos, int cmd)
     // the row index of the top-left corner of the sprite
     row_index = new_pos / B_COLS;
 
-    // 23 valid bit; 22-19 command bits
-    // 18-16 color bits
+    // 23 valid bit; 22-16 command bits
     // 15-13 type of sprite
     // 12-11 rotation of sprite
     // 10-6 row coordinate
@@ -216,11 +215,11 @@ static void  update_board(int s_type, int s_pos, int cmd)
                 print("\nDraw new sprite\r\n");
             #endif
 			// cmd 0001
-			gpio_out_buff |= 0b1 << 16;
+			gpio_out_buff |= 0b01 << 16;
             break;
         case CMD_CLR_ONE:
             // cmd 00010
-            gpio_out_buff |= 0b10 << 16;
+            gpio_out_buff |= 0b11 << 16;
             #ifdef DEBUG_C
                 print("\nClear old sprite\r\n");
             #endif
@@ -673,10 +672,10 @@ void IntrTimerHandler(void *CallbackRef){
 	    refresh_flag = 1;
 	}
 
-	/*
-	 * Verify that each of the inputs are valid.
-	 */
-	Xil_AssertVoid(CallbackRef != NULL);
+//	/*
+//	 * Verify that each of the inputs are valid.
+//	 */
+//	Xil_AssertVoid(CallbackRef != NULL);
 
 	/*
 	 * Convert the non-typed pointer to an timer/counter instance pointer
@@ -717,46 +716,6 @@ void IntrTimerHandler(void *CallbackRef){
 						XTmrCtr_ReadReg(TmrCtrPtr->BaseAddress,
 								TmrCtrNumber,
 								XTC_TCSR_OFFSET);
-				/*
-				 * If in compare mode and a single shot rather
-				 * than auto reload mode then disable the timer
-				 * and reset it such so that the interrupt can
-				 * be acknowledged, this should be only temporary
-				 * till the hardware is fixed
-				 */
-				if (((ControlStatusReg &
-						XTC_CSR_AUTO_RELOAD_MASK) == 0) &&
-						((ControlStatusReg &
-								XTC_CSR_CAPTURE_MODE_MASK) == 0)) {
-					/*
-					 * Disable the timer counter and
-					 * reset it such that the timer
-					 * counter is loaded with the
-					 * reset value allowing the
-					 * interrupt to be acknowledged
-					 */
-					ControlStatusReg &=
-							(u32)~XTC_CSR_ENABLE_TMR_MASK;
-
-					XTmrCtr_WriteReg(
-							TmrCtrPtr->BaseAddress,
-							TmrCtrNumber,
-							XTC_TCSR_OFFSET,
-							ControlStatusReg |
-							XTC_CSR_LOAD_MASK);
-
-					/*
-					 * Clear the reset condition,
-					 * the reset bit must be
-					 * manually cleared by a 2nd write
-					 * to the register
-					 */
-					XTmrCtr_WriteReg(
-							TmrCtrPtr->BaseAddress,
-							TmrCtrNumber,
-							XTC_TCSR_OFFSET,
-							ControlStatusReg);
-				}
 
 				/*
 				 * Acknowledge the interrupt by clearing the
@@ -968,19 +927,6 @@ int main() {
 
 			}
 
-			if (curr_key ==  keys[KEY_DROP]) {
-				// save the old pos
-				old_pos = pos;
-				//clear the old sprite
-				update_board(shape[0],pos,CMD_CLR_ONE);
-				// clear old sprit for game logic
-				place(shape, pos, 0);
-				for (; fits_in(shape, pos + B_COLS); ++points){
-					pos += B_COLS;
-					s_new_pos = pos;
-				}
-			}
-
 
 			// chech if the sprite can move downwards further for all ctrl key values
 			if (fits_in(shape, pos + B_COLS))
@@ -1005,6 +951,8 @@ int main() {
 			{
 				// place the shape in software
 				place(shape, pos, color);
+				// draw the new sprite at new pos
+				update_board(shape[0],pos,CMD_DRAW);
 
 				// scan the blocks of the board except the boarder to find full line
 				for (j = 0; j < B_SIZE-2*B_COLS; j = B_COLS * (j / B_COLS + 1)) {
@@ -1028,32 +976,41 @@ int main() {
 					}
 				}
 
-				if (curr_key == keys[KEY_REMAIN])
-				{
-					old_shape = *shape;
-					shape = next_shape();
+				old_shape = *shape;
+				shape = next_shape();
 
-					if (!fits_in(shape, pos = B_COLS+B_COLS/2)){
-						// when it is full pause there
-						ctrl_key = keys[KEY_PAUSE];
-						// only when freeze flag is set the interrupt will not change ctrl_key, except the pause/unpause button
-						freeze_flag =1;
-						// full make the pos one row above
-						pos = B_COLS/2;
+				if (!fits_in(shape, pos = B_COLS+B_COLS/2)){
+					// when it is full pause there
+					ctrl_key = keys[KEY_PAUSE];
+					// only when freeze flag is set the interrupt will not change ctrl_key, except the pause/unpause button
+					freeze_flag =1;
+					// full make the pos one row above
+					pos = B_COLS/2;
 
-						#ifdef DEBUG_C
-							print("\nFull! Stop!\r\n");
-						#endif
-					}else{
-						// increase the point when the next shape is ready and it is not full
-						 ++points;
-					}
-
-					s_new_pos = pos;
+					#ifdef DEBUG_C
+						print("\nFull! Stop!\r\n");
+					#endif
+				}else{
+					// increase the point when the next shape is ready and it is not full
+					 ++points;
 				}
 
+				s_new_pos = pos;
 			}
 
+
+			if (curr_key ==  keys[KEY_DROP]) {
+				// save the old pos
+				old_pos = pos;
+				//clear the old sprite
+				update_board(shape[0],pos,CMD_CLR_ONE);
+				// clear old sprit for game logic
+				place(shape, pos, 0);
+				for (; fits_in(shape, pos + B_COLS); ++points){
+					pos += B_COLS;
+					s_new_pos = pos;
+				}
+			}
 
 			place(shape, pos, color);
 			// draw the new sprite at new pos
