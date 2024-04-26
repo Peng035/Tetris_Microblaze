@@ -52,7 +52,7 @@
 #include "xil_printf.h"
 #include "xil_exception.h"
 
-#define DEBUG_C   1     // macro switch for print info
+// #define DEBUG_C   1     // macro switch for print info
 
 /* the board */
 #define      B_COLS 32      // this number should be the GPU col + 2, since no boarder in GPU yet
@@ -178,7 +178,7 @@ static int fits_in(int *s, int pos)
    // cmd: 1 clear sprite at pos
    // cmd: 2 clear line start with pos, move the upper line down
    // cmd: 3 clear the entire board
- static void  update_board(int s_type, int s_pos, int cmd)
+static void  update_board(int s_type, int s_pos, int cmd)
  {
     int new_pos, row_index, col_index;
 
@@ -215,24 +215,26 @@ static int fits_in(int *s, int pos)
             #ifdef DEBUG_C
                 print("\nDraw new sprite\r\n");
             #endif
+			// cmd 0001
+			gpio_out_buff |= 0b1 << 16;
             break;
         case CMD_CLR_ONE:
-            // cmd 0001
-            gpio_out_buff |= 0b01 << 19;
+            // cmd 00010
+            gpio_out_buff |= 0b10 << 16;
             #ifdef DEBUG_C
                 print("\nClear old sprite\r\n");
             #endif
             break;
         case CMD_CLR_LINE:
-            // cmd 0010
-            gpio_out_buff |= 0b10 << 19;
+            // cmd 00100
+            gpio_out_buff |= 0b100 << 16;
             #ifdef DEBUG_C
                 print("\nClear a Line\r\n");
             #endif
             break;
         case CMD_CLR_BOARD:
-            // cmd 0011
-            gpio_out_buff |= 0b11 << 19;
+            // cmd 001000
+            gpio_out_buff |= 0b1000 << 16;
             #ifdef DEBUG_C
                 print("\nClear the entire board\r\n");
             #endif
@@ -244,152 +246,114 @@ static int fits_in(int *s, int pos)
     switch (s_type)
     {
     case 13:    // L rotation 00
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_L_LEFT + 1) << 16;
         // type
         gpio_out_buff |= S_L_LEFT << 13;
         // rotation
         gpio_out_buff |= 0b00 << 11;
         break;
     case 14:    // L rotate 01
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_L_LEFT + 1) << 16;
         // type
         gpio_out_buff |= S_L_LEFT << 13;
         // rotation
         gpio_out_buff |= 0b01 << 11;
         break;
     case 4:    // L rotate 10
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_L_LEFT + 1) << 16;
         // type
         gpio_out_buff |= S_L_LEFT << 13;
         // rotation
         gpio_out_buff |= 0b10 << 11;
         break;
     case 12:    // L rotate 11
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_L_LEFT + 1) << 16;
         // type
         gpio_out_buff |= S_L_LEFT << 13;
         // rotation
         gpio_out_buff |= 0b11 << 11;
         break;
     case 5:    // _| rotate 00
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_L_RIGHT + 1) << 16;
         // type
         gpio_out_buff |= S_L_RIGHT << 13;
         // rotation
         // rotation 00
         break;
     case 17:    // _| rotate 01
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_L_RIGHT + 1) << 16;
         // type
         gpio_out_buff |= S_L_RIGHT << 13;
         // rotation
         gpio_out_buff |= 0b01 << 11;
         break;
     case 16:    // _| rotate 10
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_L_RIGHT + 1) << 16;
         // type
         gpio_out_buff |= S_L_RIGHT << 13;
         // rotation
         gpio_out_buff |= 0b10 << 11;
         break;
     case 15:    // _| rotate 11
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_L_RIGHT + 1) << 16;
         // type
         gpio_out_buff |= S_L_RIGHT << 13;
         // rotation
         gpio_out_buff |= 0b11 << 11;
         break;
     case 1:    // Z mirror rotate 00
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_Z_RIGHT + 1) << 16;
         // type
         gpio_out_buff |= S_Z_RIGHT << 13;
         // rotation
         gpio_out_buff |= 0b00 << 11;
         break;
     case 8:    // Z mirror rotate 11
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_Z_RIGHT + 1) << 16;
         // type
         gpio_out_buff |= S_Z_RIGHT << 13;
         // rotation
         gpio_out_buff |= 0b11 << 11;
         break;
     case 0:    // Z rotate 00
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_Z_LEFT + 1) << 16;
         // type
         gpio_out_buff |= S_Z_LEFT << 13;
         // rotation
         gpio_out_buff |= 0b00 << 11;
         break;
     case 7:    // Z rotate 11
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_Z_LEFT + 1) << 16;
         // type
         gpio_out_buff |= S_Z_LEFT << 13;
         // rotation
         gpio_out_buff |= 0b11 << 11;
         break;
     case 9:    // T rotate 00
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_T + 1) << 16;
         // type
         gpio_out_buff |= S_T << 13;
         // rotation
         gpio_out_buff |= 0b00 << 11;
         break;
     case 10:    // T rotate 01
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_T + 1) << 16;
         // type
         gpio_out_buff |= S_T << 13;
         // rotation
         gpio_out_buff |= 0b01 << 11;
         break;
     case 11:    // T rotate 10
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_T + 1) << 16;
         // type
         gpio_out_buff |= S_T << 13;
         // rotation
         gpio_out_buff |= 0b10 << 11;
         break;
     case 2:    // T rotate 11
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_T + 1) << 16;
         // type
         gpio_out_buff |= S_T << 13;
         // rotation
         gpio_out_buff |= 0b11 << 11;
         break;
     case 3:    // square rotate 00
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_SQR + 1) << 16;
         // type
         gpio_out_buff |= S_SQR << 13;
         // rotation
         gpio_out_buff |= 0b00 << 11;
         break;
     case 6:    // | rotate 00
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_STICK + 1) << 16;
         // type
         gpio_out_buff |= S_STICK << 13;
         // rotation
         gpio_out_buff |= 0b00 << 11;
         break;
     case 18:    // | rotate 01
-        // color 0 means black, so color = type + 1
-        gpio_out_buff |= (S_STICK + 1) << 16;
         // type
         gpio_out_buff |= S_STICK << 13;
         // rotation
@@ -414,12 +378,11 @@ static int fits_in(int *s, int pos)
 		}
 	#endif
 
-
-
     // write the GPIO output
     XGpio_DiscreteWrite(&Gpio_out, GPIO_OUT_CHANNEL, gpio_out_buff);
 
  }
+
 
 //  place shape at pos with color in softeware
 static void place(int *s, int pos, int c)
@@ -515,7 +478,7 @@ void IntrButton_U_Handler(void *CallbackRef){
 #endif
 
 	// clear interrupt in Interrupt block
-	XIntc_Acknowledge(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_U_INTR);
+	XIntc_Acknowledge(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONUP_INTR);
 }
 
 // Left
@@ -530,7 +493,7 @@ void IntrButton_L_Handler(void *CallbackRef){
 		ctrl_key = keys[KEY_LEFT];
 	}
 	// clear interrupt in Interrupt block
-	XIntc_Acknowledge(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_L_INTR);
+	XIntc_Acknowledge(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONLEFT_INTR);
 }
 
 // Right
@@ -547,7 +510,7 @@ void IntrButton_R_Handler(void *CallbackRef){
 	}
 
 	// clear interrupt in Interrupt block
-	XIntc_Acknowledge(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_R_INTR);
+	XIntc_Acknowledge(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONRIGHT_INTR);
 }
 
 // button Down means drop
@@ -564,7 +527,7 @@ void IntrButton_D_Handler(void *CallbackRef){
 	}
 
 	// clear interrupt in Interrupt block
-	XIntc_Acknowledge(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_D_INTR);
+	XIntc_Acknowledge(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONDOWN_INTR);
 }
 
 // button C means rotate
@@ -581,7 +544,7 @@ void IntrButton_C_Handler(void *CallbackRef){
 	}
 
 	// clear interrupt in Interrupt block
-	XIntc_Acknowledge(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_C_INTR);
+	XIntc_Acknowledge(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONMIDDLE_INTR);
 }
 
 // Restart Switch handler, Intr_Restart_Handler
@@ -610,22 +573,12 @@ void IntrTimerHandler(void *CallbackRef){
 	u8 TmrCtrNumber;
 	u32 ControlStatusReg;
 
-	//clear the old sprite in GPU
-//	update_board(shape[0],old_pos,CMD_CLR_ONE);
-
-	// draw new sprite
-	update_board(shape[0],s_new_pos,CMD_DRAW);
-
-    // clear the valid flag of GPIO
-    XGpio_DiscreteWrite(&Gpio_out, GPIO_OUT_CHANNEL, gpio_out_buff & 0b0011111111111111);
-
-    // set the refresh flag
-    refresh_flag = 1;
-
-    // only handle the button when it is Not frozen
-    // assign remain to the ctrl_key
 	if (!freeze_flag){
+	    // only handle the button when it is Not frozen
+	    // assign remain to the ctrl_key
 		ctrl_key = keys[KEY_REMAIN];
+	    // set the refresh flag
+	    refresh_flag = 1;
 	}
 
 	/*
@@ -738,6 +691,7 @@ void IntrTimerHandler(void *CallbackRef){
 
 int main() {
     int status;
+
     u32 DataRead;
 
     int  i, j, *ptr;
@@ -756,7 +710,10 @@ int main() {
 
     Xil_ICacheEnable();
     Xil_DCacheEnable();
+
+#ifdef DEBUG_C
     print("---Entering main---\r\n");
+#endif
 
     // Initialize GPIO_out controller
     status = XGpio_Initialize(&Gpio_out, XPAR_GPIO_0_DEVICE_ID);
@@ -765,7 +722,7 @@ int main() {
 
     // Initialize timer controller
     status = XTmrCtr_Initialize(&_axi_timer, XPAR_TMRCTR_0_DEVICE_ID);
-    XTmrCtr_SetResetValue(&_axi_timer, 0, 0xAFFFFFF);
+    XTmrCtr_SetResetValue(&_axi_timer, 0, 0x7FFFFFF);
     XTmrCtr_SetOptions(&_axi_timer, 0, XTC_INT_MODE_OPTION | XTC_AUTO_RELOAD_OPTION | XTC_DOWN_COUNT_OPTION);
 
     // Initialize interrupt controller
@@ -779,20 +736,20 @@ int main() {
     #endif
 
     // Connect interrupt handlers for buttons
-    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_U_INTR, (XInterruptHandler)IntrButton_U_Handler, &Gpio_out);
-    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_L_INTR, (XInterruptHandler)IntrButton_L_Handler, &Gpio_out);
-    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_R_INTR, (XInterruptHandler)IntrButton_R_Handler, &Gpio_out);
-    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_D_INTR, (XInterruptHandler)IntrButton_D_Handler, &Gpio_out);
-    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_C_INTR, (XInterruptHandler)IntrButton_C_Handler, &Gpio_out);
+    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONUP_INTR, (XInterruptHandler)IntrButton_U_Handler, &Gpio_out);
+    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONLEFT_INTR, (XInterruptHandler)IntrButton_L_Handler, &Gpio_out);
+    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONRIGHT_INTR, (XInterruptHandler)IntrButton_R_Handler, &Gpio_out);
+    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONDOWN_INTR, (XInterruptHandler)IntrButton_D_Handler, &Gpio_out);
+    status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONMIDDLE_INTR, (XInterruptHandler)IntrButton_C_Handler, &Gpio_out);
     status = XIntc_Connect(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_RESTART_S_INTR, (XInterruptHandler)Intr_Restart_Handler, &Gpio_out);
 
 
     // Enable interrupts for buttons
-    XIntc_Enable(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_U_INTR);
-    XIntc_Enable(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_L_INTR);
-    XIntc_Enable(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_R_INTR);
-    XIntc_Enable(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_D_INTR);
-    XIntc_Enable(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_BUTTON_C_INTR);
+    XIntc_Enable(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONUP_INTR);
+    XIntc_Enable(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONLEFT_INTR);
+    XIntc_Enable(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONRIGHT_INTR);
+    XIntc_Enable(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONDOWN_INTR);
+    XIntc_Enable(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_KEYRECEIVER_0_BUTTONMIDDLE_INTR);
     XIntc_Enable(&intc, XPAR_MICROBLAZE_RISCV_0_AXI_INTC_SYSTEM_RESTART_S_INTR);
 
 
@@ -869,139 +826,138 @@ int main() {
         	xil_printf("\nOld pos = %d\r\n", pos);
 		#endif
 
-            // if this cycle is due to timer
-            if (curr_key == keys[KEY_REMAIN])
-        	{
-                // chech if the sprite can move downwards further
-                if (fits_in(shape, pos + B_COLS))
-                {
-                	// save the old pos
-					old_pos = pos;
-                    //clear the old sprite for GPU
-                    update_board(shape[0],old_pos,CMD_CLR_ONE);
-                    // clear old sprit for game logic
-                    place(shape, pos, 0);
 
-                    // move to next position
-                    pos += B_COLS;
-                    s_new_pos = pos;
-                }
-                else        // cannot drop further
-                {
-                    // place the shape in software
-                    place(shape, pos, color);
-                    // draw the shape with GPU, shape[0] is the type index of shape
-                    update_board(shape[0],pos,CMD_DRAW);
-
-                    // scan the blocks of the board except the boarder to find full line
-                    for (j = 0; j < B_SIZE-2*B_COLS; j = B_COLS * (j / B_COLS + 1)) {
-                        for (; board[++j];) {
-                            if (j % B_COLS == B_COLS-2) {
-                                lines_cleared++;
-
-                                // clear the line with GPU, j-B_COLs+3 is the start pos of the line
-                                // GPU should move the upper line down
-                                update_board(S_EMPTY,j-B_COLS+3,CMD_CLR_LINE);
-
-                                // clear the line in software code
-                                for (; j % B_COLS; board[j--] = 0)
-                                ;
-
-                                // move the upper row down after clear one line
-                                for (; --j; board[j + B_COLS] = board[j])
-                                ;
-
-                            }
-                        }
-                    }
-
-                    old_shape = *shape;
-                    shape = next_shape();
-
-
-                    if (!fits_in(shape, pos = B_COLS+B_COLS/2)){
-                        // when it is full pause there
-                        ctrl_key = keys[KEY_PAUSE];
-                        // only when freeze flag is set the interrupt will not change ctrl_key, except the pause/unpause button
-                        freeze_flag =1;
-
-                        #ifdef DEBUG_C
-                            print("\nFull! Stop!\r\n");
-                        #endif
-                    }else{
-                        // increase the point when the next shape is ready and it is not full
-                         ++points;
-                    }
-
-                    s_new_pos = pos;
-
-                }
-            }
-
-            if (curr_key == keys[KEY_LEFT]) {
-
-
-                if (fits_in(shape, pos-1)){
-                	// clear old sprit for game logic
+			if (curr_key == keys[KEY_LEFT]) {
+				if (fits_in(shape, pos-1)){
+					// clear old sprit for game logic
 					place(shape, pos, 0);
 					// save the old pos
 					old_pos = pos;
-	                // change pos
+					// change pos
 					--pos;
 					s_new_pos = pos;
 					//clear the old sprite in GPU
 					update_board(shape[0],old_pos,CMD_CLR_ONE);
-                }
+				}
+			}
 
-            }
-
-            if (curr_key ==  keys[KEY_ROTATE]) {
-                backup = shape;
-                old_shape = *shape;
-                shape = &shapes[5 * *shape];	/* Rotate */
-                /* Check if it fits, if not restore shape from backup */
-                if (!fits_in(shape, pos)){
-                    shape = backup;
-                }
-                else{		// fit update the board
-                	// save the old pos
+			if (curr_key ==  keys[KEY_ROTATE]) {
+				backup = shape;
+				old_shape = *shape;
+				shape = &shapes[5 * *shape];	/* Rotate */
+				/* Check if it fits, if not restore shape from backup */
+				if (!fits_in(shape, pos)){
+					shape = backup;
+				}
+				else{		// fit update the board
+					// save the old pos
 					old_pos = pos;
-                	//clear the old sprite
+					//clear the old sprite
 					update_board(old_shape,pos,CMD_CLR_ONE);
 					// clear old sprit for game logic
 					place(shape, pos, 0);
-                }
-            }
+				}
+			}
 
-            if (curr_key ==  keys[KEY_RIGHT]) {
-                if (fits_in(shape, pos+1)){
-                	// save the old pos
+			if (curr_key ==  keys[KEY_RIGHT]) {
+				if (fits_in(shape, pos+1)){
+					// save the old pos
 					old_pos = pos;
-                    // clear old sprit for game logic
-                    place(shape, pos, 0);
-                    // change pos
-                    ++pos;
-                    s_new_pos = pos;
-                	//clear the old sprite in GPU
-                	update_board(shape[0],old_pos,CMD_CLR_ONE);
-//                	// draw new sprite
-//                	update_board(shape[0],new_pos,CMD_DRAW);
-                }
+					// clear old sprit for game logic
+					place(shape, pos, 0);
+					// change pos
+					++pos;
+					s_new_pos = pos;
+					//clear the old sprite in GPU
+					update_board(shape[0],old_pos,CMD_CLR_ONE);
+				}
 
-            }
+			}
 
-            if (curr_key ==  keys[KEY_DROP]) {
-            	// save the old pos
+			if (curr_key ==  keys[KEY_DROP]) {
+				// save the old pos
 				old_pos = pos;
-                //clear the old sprite
-                update_board(shape[0],pos,CMD_CLR_ONE);
-                // clear old sprit for game logic
+				//clear the old sprite
+				update_board(shape[0],pos,CMD_CLR_ONE);
+				// clear old sprit for game logic
 				place(shape, pos, 0);
-                for (; fits_in(shape, pos + B_COLS); ++points){
-                    pos += B_COLS;
-                    s_new_pos = pos;
-                }
-            }
+				for (; fits_in(shape, pos + B_COLS); ++points){
+					pos += B_COLS;
+					s_new_pos = pos;
+				}
+			}
+
+
+			// chech if the sprite can move downwards further for all ctrl key values
+			if (fits_in(shape, pos + B_COLS))
+			{
+				// move only according to time interrupt
+				 if (curr_key == keys[KEY_REMAIN])
+				 {
+					// save the old pos
+					old_pos = pos;
+					 //clear the old sprite for GPU
+					 update_board(shape[0],old_pos,CMD_CLR_ONE);
+					 // clear old sprit for game logic
+					 place(shape, pos, 0);
+
+					 // move to next position
+					 pos += B_COLS;
+					 s_new_pos = pos;
+				 }
+
+			}
+			else        // cannot drop further
+			{
+				// place the shape in software
+				place(shape, pos, color);
+
+				// scan the blocks of the board except the boarder to find full line
+				for (j = 0; j < B_SIZE-2*B_COLS; j = B_COLS * (j / B_COLS + 1)) {
+					for (; board[++j];) {
+						if (j % B_COLS == B_COLS-2) {
+							lines_cleared++;
+
+							// clear the line with GPU, j-B_COLs+3 is the start pos of the line
+							// GPU should move the upper line down
+							update_board(S_EMPTY,j-B_COLS+3,CMD_CLR_LINE);
+
+							// clear the line in software code
+							for (; j % B_COLS; board[j--] = 0)
+							;
+
+							// move the upper row down after clear one line
+							for (; --j; board[j + B_COLS] = board[j])
+							;
+
+						}
+					}
+				}
+
+				if (curr_key == keys[KEY_REMAIN])
+				{
+					old_shape = *shape;
+					shape = next_shape();
+
+					if (!fits_in(shape, pos = B_COLS+B_COLS/2)){
+						// when it is full pause there
+						ctrl_key = keys[KEY_PAUSE];
+						// only when freeze flag is set the interrupt will not change ctrl_key, except the pause/unpause button
+						freeze_flag =1;
+
+						#ifdef DEBUG_C
+							print("\nFull! Stop!\r\n");
+						#endif
+					}else{
+						// increase the point when the next shape is ready and it is not full
+						 ++points;
+					}
+
+					s_new_pos = pos;
+				}
+
+			}
+
 
 			place(shape, pos, color);
 			// draw the new sprite at new pos
@@ -1014,12 +970,6 @@ int main() {
 
             // clear the flag, wait until next interrupt
             refresh_flag = 0;
-
-            // save the old pos
-//            old_pos = pos;
-
-        	//clear the old sprite in GPU
-//        	update_board(old_shape,old_pos,CMD_CLR_ONE);
 
             // clear old sprit for game logic
 			place(shape, pos, 0);
