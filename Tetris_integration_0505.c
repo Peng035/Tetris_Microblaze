@@ -52,7 +52,7 @@
 #include "xil_printf.h"
 #include "xil_exception.h"
 
- #define DEBUG_C   1     // macro switch for print info
+// #define DEBUG_C   1     // macro switch for print info
 
 /* the board */
 #define      B_COLS 18      // this number should be the GPU col + 2, since no boarder in GPU yet
@@ -911,7 +911,7 @@ int main() {
 	for (i = B_SIZE; i; i--){
         // i < 2*B_COLS+1 the bottom line of the table
         // i % B_COLS < 2 the left and right boarder of the table
-        *ptr++ = i < 2*B_COLS+1 || i % B_COLS < 2 ? 60 : 0;
+        *ptr++ = i < B_COLS+1 || i % B_COLS < 2 ? 60 : 0;
     }
 	// the initial position is B_COLS+1 due to C code and GPU use different blocks
 	// C code uses 3X3 center is the middle, GPU use 4X4 and the center is top-left
@@ -941,7 +941,7 @@ int main() {
 			{
 				// i < 2*B_COLS+1 the bottom line of the table
 				// i % B_COLS < 2 the left and right boarder of the table
-				*ptr++ = i < 2*B_COLS+1 || i % B_COLS < 2 ? 60 : 0;
+				*ptr++ = i < B_COLS+1 || i % B_COLS < 2 ? 60 : 0;
 			}
             update_board(S_EMPTY,B_COLS+1,CMD_CLR_BOARD, 0);
         }
@@ -1009,7 +1009,7 @@ int main() {
 				}
 			}
 
-//			if (curr_key == keys[KEY_REMAIN])
+			if (curr_key == keys[KEY_REMAIN])
 			{
 
 				// chech if the sprite can move downwards further for all ctrl key values
@@ -1036,7 +1036,7 @@ int main() {
 					update_board(shape[0],pos,CMD_DRAW, DROP_MUSIC);
 
 					// scan the blocks of the board except the boarder to find full line
-					for (j = 0; j < B_SIZE-2*B_COLS; j = B_COLS * (j / B_COLS + 1))
+					for (j = 0; j < B_SIZE-B_COLS; j = B_COLS * (j / B_COLS + 1))
 					{
 						for (; board[++j];)
 						{
@@ -1045,7 +1045,7 @@ int main() {
 								lines_cleared++;
 								// clear the line with GPU, j-B_COLs+3 is the start pos of the line
 								// GPU should move the upper line down
-								row_to_clr = j + B_COLS ;
+								row_to_clr = j + B_COLS + 3;
 
 								update_board(S_EMPTY,row_to_clr,CMD_CLR_LINE, CLR_MUSIC);
 
